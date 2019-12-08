@@ -53,7 +53,7 @@ void XorBootstrap(LWESample* out, LWESample* in0, LWESample* in1, Torus mu,
 void XnorBootstrap(LWESample* out, LWESample* in0, LWESample* in1, Torus mu,
                    Torus fix, cudaStream_t st);
 void NotBootstrap(LWESample* out, LWESample* in, int n, cudaStream_t st);
-void MuxBootstrap(LWESample* out, LWESample* inc, LWESample* in1,
+void MuxBootstrap(LWESample* out, LWESample* ins, LWESample* in1,
                   LWESample* in0, Torus mu, Torus fix, Torus muxfix,
                   cudaStream_t st);
 void NoiselessTrivial(LWESample* out, int p, Torus mu, cudaStream_t st);

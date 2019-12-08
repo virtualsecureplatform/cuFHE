@@ -158,6 +158,26 @@ __device__ inline void KeySwitch(Torus* lwe, Torus* tlwe, Torus* ksk)
     }
 }
 
+template <uint32_t lwe_n = 500, uint32_t tlwe_n = 1024,
+          uint32_t decomp_bits = 2, uint32_t decomp_size = 8>
+__global__ void __MuxKeySwitchWithAdd__(Torus* lwe, Torus* temp, Torus muxfix, Torus* ksk){
+    register uint32_t tid = ThisThreadRankInBlock();
+    register uint32_t bdim = ThisBlockSize();
+    __shared__ Torus tlwe[2*DEF_N];
+#pragma unroll
+    for (int i = tid;i <=DEF_N; i+=bdim){
+        tlwe[i] = temp[i];
+    }
+
+#pragma unroll
+    for (int i = tid;i <=DEF_N; i+=bdim){
+        tlwe[i] += temp[i+DEF_N+1];
+        if(i==DEF_N) tlwe[i] += muxfix;
+    }
+    __syncthreads();
+    KeySwitch<lwe_n, tlwe_n, decomp_bits, decomp_size>(lwe, tlwe, ksk);
+}
+
 template <uint32_t lwe_n = 500, uint32_t tlwe_n = 1024, uint32_t tlwe_nbit = 10>
 __device__ inline void RotatedTestVector(Torus* tlwe, int32_t bar, uint32_t mu)
 {
@@ -412,6 +432,37 @@ __global__ void __AndBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<500, 1024, 2, 8>(out, tlwe, ksk);
+}
+
+__global__ void __MuxAndBootstrapWoKS__(Torus* out, Torus* ins, Torus* in1, Torus* in0, Torus mu,
+                                 Torus fix, FFP* bk,
+                                 CuNTTHandler<> ntt)
+{
+    register uint32_t tid = ThisThreadRankInBlock();
+    register uint32_t bdim = ThisBlockSize();
+    __shared__ FFP sh[(2 * DEF_l + 2) * DEF_N];  // This is V100's MAX
+    Torus* tlwe = (Torus*)&sh[(2 * DEF_l + 1) * DEF_N];
+
+    // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
+    register Torus select = blockIdx.x?ins[DEF_n]:-ins[DEF_n];
+    register Torus* in = blockIdx.x?in1:in0;
+    
+    register int32_t bar = 2 * DEF_N - ModSwitch2048(fix + select + in[DEF_n]);
+    RotatedTestVector<DEF_n, DEF_N, DEF_Nbit>(tlwe, bar, mu);
+
+// accumulate
+#pragma unroll
+    for (int i = 0; i < DEF_n; i++) {  // 500 iterations
+        select = blockIdx.x?ins[i]:-ins[i];
+        bar = ModSwitch2048(0 + select + in[i]);
+        Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
+    }
+
+    register Torus* outs = &out[blockIdx.x*(DEF_N+1)];
+#pragma unroll
+    for (int i = tid;i<=DEF_N;i+=bdim){
+        outs[i] = tlwe[i];
+    }
 }
 
 __global__ void __AndYNBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -699,13 +750,17 @@ void NotBootstrap(LWESample* out, LWESample* in, int n, cudaStream_t st)
     CuCheckError();
 }
 
-void MuxBootstrap(LWESample* out, LWESample* inc, LWESample* in1,
+void MuxBootstrap(LWESample* out, LWESample* ins, LWESample* in1,
                   LWESample* in0, Torus mu, Torus fix, Torus muxfix,
                   cudaStream_t st)
 {
-    __MuxBootstrap__<<<1, DEF_N / 2, 0, st>>>(
-        out->data(), inc->data(), in1->data(), in0->data(), mu, fix, muxfix,
-        bk_ntt->data(), ksk_dev->data(), *ntt_handler);
+    Torus* temp;
+    cudaMalloc((void**)&temp,sizeof(Torus)*2*(DEF_N+1));
+    __MuxAndBootstrapWoKS__<<<2, DEF_N / 2, 0, st>>>(
+        temp, ins->data(), in1->data(), in0->data(), mu, fix,
+        bk_ntt->data(), *ntt_handler);
+    __MuxKeySwitchWithAdd__<<<1, DEF_N/2, 0, st>>>(out->data(),temp,muxfix,ksk_dev->data());
+    cudaFree(temp);
     CuCheckError();
 }
 

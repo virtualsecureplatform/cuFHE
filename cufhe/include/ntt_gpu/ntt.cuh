@@ -101,6 +101,6 @@ private:
   static const uint32_t kLogLength_ = Log2Const(kLength_);
 }; // class NTTHandler
 
-template class CuNTTHandler<length, NEGATIVE_CYCLIC_CONVOLUTION>;
+template class CuNTTHandler<DEF_N, NEGATIVE_CYCLIC_CONVOLUTION>;
 
 } // namespace cufhe

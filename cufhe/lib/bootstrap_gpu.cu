@@ -267,7 +267,7 @@ __device__ void Accumulate(Torus* tlwe, FFP* sh_acc_ntt, FFP* sh_res_ntt,
     __syncthreads();  // must
 }
 
-__global__ void __Bootstrap__(Torus* out, Torus* in, Torus mu, FFP* bk,
+__global__ void __Bootstrap__(volatile Torus* out, Torus* in, Torus mu, FFP* bk,
                               Torus* ksk, CuNTTHandler<> ntt)
 {
     //  Assert(bk.k() == 1);
@@ -309,10 +309,9 @@ __global__ void __Bootstrap__(Torus* out, Torus* in, Torus mu, FFP* bk,
     static const uint32_t ks_bits = 2;
     static const uint32_t ks_size = 8;
     KeySwitch<DEF_n, DEF_N, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __NandBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __NandBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                   Torus fix, FFP* bk, Torus* ksk,
                                   CuNTTHandler<> ntt)
 {
@@ -332,10 +331,9 @@ __global__ void __NandBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<DEF_n, DEF_N, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __OrBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __OrBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                 Torus fix, FFP* bk, Torus* ksk,
                                 CuNTTHandler<> ntt)
 {
@@ -354,10 +352,9 @@ __global__ void __OrBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<DEF_n, DEF_N, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __OrYNBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __OrYNBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                   Torus fix, FFP* bk, Torus* ksk,
                                   CuNTTHandler<> ntt)
 {
@@ -376,10 +373,9 @@ __global__ void __OrYNBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<DEF_n, DEF_N, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __OrNYBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __OrNYBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                   Torus fix, FFP* bk, Torus* ksk,
                                   CuNTTHandler<> ntt)
 {
@@ -398,10 +394,9 @@ __global__ void __OrNYBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<DEF_n, DEF_N, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __AndBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __AndBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                  Torus fix, FFP* bk, Torus* ksk,
                                  CuNTTHandler<> ntt)
 {
@@ -420,10 +415,9 @@ __global__ void __AndBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<DEF_n, DEF_N, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __AndYNBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __AndYNBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                    Torus fix, FFP* bk, Torus* ksk,
                                    CuNTTHandler<> ntt)
 {
@@ -442,10 +436,9 @@ __global__ void __AndYNBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<DEF_n, DEF_N, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __AndNYBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __AndNYBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                    Torus fix, FFP* bk, Torus* ksk,
                                    CuNTTHandler<> ntt)
 {
@@ -464,10 +457,9 @@ __global__ void __AndNYBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<DEF_n, DEF_N, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __NorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __NorBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                  Torus fix, FFP* bk, Torus* ksk,
                                  CuNTTHandler<> ntt)
 {
@@ -485,10 +477,9 @@ __global__ void __NorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<DEF_n, DEF_N, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __XorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __XorBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                  Torus fix, FFP* bk, Torus* ksk,
                                  CuNTTHandler<> ntt)
 {
@@ -510,7 +501,7 @@ __global__ void __XorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
     __threadfence();
 }
 
-__global__ void __XnorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
+__global__ void __XnorBootstrap__(volatile Torus* out, Torus* in0, Torus* in1, Torus mu,
                                   Torus fix, FFP* bk, Torus* ksk,
                                   CuNTTHandler<> ntt)
 {
@@ -529,29 +520,26 @@ __global__ void __XnorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << 13), ntt);
     }
     KeySwitch<500, 1024, 2, 8>(out, tlwe, ksk);
-    __threadfence();
 }
 
-__global__ void __CopyBootstrap__(Torus* out, Torus* in)
+__global__ void __CopyBootstrap__(volatile Torus* out, Torus* in)
 {
     uint32_t tid = ThisThreadRankInBlock();
     out[tid] = in[tid];
     __syncthreads();
-    __threadfence();
 }
 
-__global__ void __NotBootstrap__(Torus* out, Torus* in, int n)
+__global__ void __NotBootstrap__(volatile Torus* out, Torus* in, int n)
 {
 #pragma unroll
     for (int i = 0; i <= n; i++) {
         out[i] = -in[i];
     }
     __syncthreads();
-    __threadfence();
 }
 
 // Mux(inc,in1,in0) = inc?in1:in0 = inc&in1 + (!inc)&in0
-__global__ void __MuxBootstrap__(Torus* out, Torus* inc, Torus* in1, Torus* in0,
+__global__ void __MuxBootstrap__(volatile Torus* out, Torus* inc, Torus* in1, Torus* in0,
                                  Torus mu, Torus fix, Torus muxfix, FFP* bk,
                                  Torus* ksk, CuNTTHandler<> ntt)
 {
@@ -595,10 +583,9 @@ __global__ void __MuxBootstrap__(Torus* out, Torus* inc, Torus* in1, Torus* in0,
     __syncthreads();
 
     KeySwitch<500, 1024, 2, 8>(out, tlwe1, ksk);
-    __threadfence();
 }
 
-__global__ void __NoiselessTrivial__(Torus* out, Torus pmu)
+__global__ void __NoiselessTrivial__(volatile Torus* out, Torus pmu)
 {
     register uint32_t tid = ThisThreadRankInBlock();
     register uint32_t bdim = ThisBlockSize();
@@ -609,7 +596,6 @@ __global__ void __NoiselessTrivial__(Torus* out, Torus pmu)
         else
             out[i] = 0;
     }
-    __threadfence();
 }
 
 void Bootstrap(LWESample* out, LWESample* in, Torus mu, cudaStream_t st)

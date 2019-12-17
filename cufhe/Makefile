@@ -40,11 +40,11 @@ CC_DEP = $(CC_OBJ:.o=.d)
 
 ##
 targets: $(DIR_BIN)/libcufhe_cpu.so $(DIR_BIN)/libcufhe_gpu.so \
-	$(DIR_BIN)/test_api_cpu $(DIR_BIN)/test_api_gpu $(DIR_BIN)/test_gate_gpu $(DIR_BIN)/test_gapi $(DIR_BIN)/test_ggate_gpu
+	$(DIR_BIN)/test_tfhekey $(DIR_BIN)/test_api_cpu $(DIR_BIN)/test_api_gpu $(DIR_BIN)/test_gate_gpu $(DIR_BIN)/test_gapi $(DIR_BIN)/test_ggate_gpu
 
 ##
 all: $(targets)
-cpu: $(DIR_BIN)/libcufhe_cpu.so $(DIR_BIN)/test_api_cpu
+cpu: $(DIR_BIN)/libcufhe_cpu.so $(DIR_BIN)/test_tfhekey $(DIR_BIN)/test_api_cpu
 gpu: $(DIR_BIN)/libcufhe_gpu.so $(DIR_BIN)/test_api_gpu $(DIR_BIN)/test_gate_gpu $(DIR_BIN)/test_gapi $(DIR_BIN)/test_ggate_gpu
 python_cpu: $(DIR_BIN)/libcufhe_cpu.so $(DIR_PY)/fhepy_cpu.so
 python_gpu: $(DIR_BIN)/libcufhe_gpu.so $(DIR_PY)/fhepy_gpu.so
@@ -59,7 +59,16 @@ $(DIR_BIN)/test_api_cpu: $(DIR_OBJ)/test/test_api_cpu.o
 	$(dir_guard)
 	$(CC) $(FLAGS) -o $@ $(DIR_OBJ)/test/test_api_cpu.o -L$(DIR_BIN) -lcufhe_cpu
 
+$(DIR_BIN)/test_tfhekey: $(DIR_OBJ)/test/test_tfhekey.o
+	$(dir_guard)
+	$(CC) $(FLAGS) -o $@ $(DIR_OBJ)/test/test_tfhekey.o -L$(DIR_BIN) -lcufhe_cpu -ltfhe-spqlios-avx
+
 $(DIR_OBJ)/test/test_api_cpu.o: test/test_api_cpu.cc
+	$(dir_guard)
+	$(CC) $(FLAGS) $(INC) -M -o $(@:%.o=%.d) $<
+	$(CC) $(FLAGS) $(INC) -c -o $@ $<
+
+$(DIR_OBJ)/test/test_tfhekey.o: test/test_tfhekey.cc
 	$(dir_guard)
 	$(CC) $(FLAGS) $(INC) -M -o $(@:%.o=%.d) $<
 	$(CC) $(FLAGS) $(INC) -c -o $@ $<

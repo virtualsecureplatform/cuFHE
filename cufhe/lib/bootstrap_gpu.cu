@@ -129,7 +129,7 @@ __device__ inline uint32_t ModSwitch2048(uint32_t a)
 
 template <uint32_t lwe_n = 500, uint32_t tlwe_n = 1024,
           uint32_t decomp_bits = 2, uint32_t decomp_size = 8>
-__device__ inline void KeySwitch(Torus* lwe, Torus* tlwe, Torus* ksk)
+__device__ inline void KeySwitch(volatile Torus* lwe, Torus* tlwe, Torus* ksk)
 {
     static const Torus decomp_mask = (1u << decomp_bits) - 1;
     static const Torus decomp_offset = 1u << (31 - decomp_size * decomp_bits);

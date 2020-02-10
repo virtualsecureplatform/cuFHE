@@ -151,7 +151,7 @@ struct Ctxt {
 
 /** TRLWE holder */
 struct cuFHETRLWElvl1{
-    std::array< std::array<uint32_t, cuFHE_DEF_N> ,2> trlwehost;
+    Torus* trlwehost;
     std::vector<Torus*> trlwedevices;
     cuFHETRLWElvl1();
 };

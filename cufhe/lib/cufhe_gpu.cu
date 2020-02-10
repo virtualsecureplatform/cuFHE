@@ -95,10 +95,11 @@ Ctxt::~Ctxt()
 }
 
 cuFHETRLWElvl1::cuFHETRLWElvl1(){
+    cudaMallocHost((void**)&trlwehost,2*cuFHE_DEF_N*sizeof(Torus));
     trlwedevices.resize(_gpuNum);
     for(int i=0;i<_gpuNum;i++){
         cudaSetDevice(i);
-        cudaMalloc((void**)&trlwedevices[i],sizeof(trlwehost));
+        cudaMalloc((void**)&trlwedevices[i],2*cuFHE_DEF_N*sizeof(Torus));
     }
 }
 

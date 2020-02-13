@@ -22,6 +22,7 @@
 
 #include <include/cufhe.h>
 #include <include/details/allocator_gpu.cuh>
+#include <include/details/error_gpu.cuh>
 #include <include/cufhe_gpu.cuh>
 #include <cuda.h>
 #include <cuda_device_runtime_api.h>
@@ -99,7 +100,7 @@ cuFHETRLWElvl1::cuFHETRLWElvl1(){
     trlwedevices.resize(_gpuNum);
     for(int i=0;i<_gpuNum;i++){
         cudaSetDevice(i);
-        cudaMalloc((void**)&trlwedevices[i],2*cuFHE_DEF_N*sizeof(Torus));
+        CuSafeCall(cudaMalloc((void**)&trlwedevices[i],2*cuFHE_DEF_N*sizeof(Torus)));
     }
 }
 

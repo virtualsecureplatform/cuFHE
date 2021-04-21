@@ -344,14 +344,14 @@ __global__ void __Bootstrap__(Torus* out, Torus* in, Torus mu, FFP* bk,
     static const uint32_t ks_bits = cuFHE_DEF_basebit;
     static const uint32_t ks_size = cuFHE_DEF_t;
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __SEandKS__(Torus* out, Torus* in, FFP* bk, Torus* ksk,
                             CuNTTHandler<> ntt)
 {
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, in, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __BootstrapTLWE2TRLWE__(Torus* out, Torus* in, Torus mu,
@@ -394,7 +394,7 @@ __global__ void __BootstrapTLWE2TRLWE__(Torus* out, Torus* in, Torus mu,
     for (int i = 0; i < 2 * cuFHE_DEF_N; i++) {
         out[i] = tlwe[i];
     }
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __NandBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -419,7 +419,7 @@ __global__ void __NandBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __OrBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -442,7 +442,7 @@ __global__ void __OrBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __OrYNBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -465,7 +465,7 @@ __global__ void __OrYNBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __OrNYBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -488,7 +488,7 @@ __global__ void __OrNYBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __AndBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -512,7 +512,7 @@ __global__ void __AndBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __AndYNBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -536,7 +536,7 @@ __global__ void __AndYNBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __AndNYBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -560,7 +560,7 @@ __global__ void __AndNYBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __NorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -581,7 +581,7 @@ __global__ void __NorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __XorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -603,7 +603,7 @@ __global__ void __XorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __XnorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
@@ -625,7 +625,7 @@ __global__ void __XnorBootstrap__(Torus* out, Torus* in0, Torus* in1, Torus mu,
         Accumulate(tlwe, sh, sh, bar, bk + (i << cuFHE_DEF_Nbit)*2*2*cuFHE_DEF_l, ntt);
     }
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __CopyBootstrap__(Torus* out, Torus* in)
@@ -633,7 +633,7 @@ __global__ void __CopyBootstrap__(Torus* out, Torus* in)
     uint32_t tid = ThisThreadRankInBlock();
     out[tid] = in[tid];
     __syncthreads();
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __NotBootstrap__(Torus* out, Torus* in, int n)
@@ -643,7 +643,7 @@ __global__ void __NotBootstrap__(Torus* out, Torus* in, int n)
         out[i] = -in[i];
     }
     __syncthreads();
-    __threadfence();
+    __threadfence_system();
 }
 
 // Mux(inc,in1,in0) = inc?in1:in0 = inc&in1 + (!inc)&in0
@@ -693,7 +693,7 @@ __global__ void __MuxBootstrap__(Torus* out, Torus* inc, Torus* in1, Torus* in0,
     __syncthreads();
 
     KeySwitch<cuFHE_DEF_n, cuFHE_DEF_N, cuFHE_DEF_basebit, cuFHE_DEF_t>(out, tlwe1, ksk);
-    __threadfence();
+    __threadfence_system();
 }
 
 __global__ void __NoiselessTrivial__(Torus* out, Torus pmu)
@@ -707,7 +707,7 @@ __global__ void __NoiselessTrivial__(Torus* out, Torus pmu)
         else
             out[i] = 0;
     }
-    __threadfence();
+    __threadfence_system();
 }
 
 void Bootstrap(LWESample* out, LWESample* in, Torus mu, cudaStream_t st,

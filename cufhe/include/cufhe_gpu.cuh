@@ -28,7 +28,9 @@
  */
 
 #pragma once
-
+#include <cuda_device_runtime_api.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include "cufhe.h"
 
 namespace cufhe {
@@ -77,5 +79,9 @@ void Copy(Ctxt& out, const Ctxt& in, Stream st = 0);
 // Not Ready...
 // void Mux(Ctxt& out, const Ctxt& in0, const Ctxt& in1, const Ctxt& in2,
 //          cudaStream_t st = 0);
+
+bool StreamQuery(Stream st);
+void ConstantOne(Ctxt& out);
+void ConstantZero(Ctxt& out);
 
 } // namespace cufhe

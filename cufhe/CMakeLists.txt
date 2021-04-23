@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.10)
+project(cuFHE LANGUAGES CUDA CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+find_package(CUDA)
+
+add_subdirectory(lib)
+add_subdirectory(test)

@@ -144,4 +144,32 @@ void Copy(Ctxt& out,
     out.lwe_sample_->data()[i] = in.lwe_sample_->data()[i];
 }
 
+bool StreamQuery(Stream st)
+{
+    cudaError_t res = cudaStreamQuery(st.st());
+    if (res == cudaSuccess) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+void ConstantZero(Ctxt& out)
+{
+    static const Torus mu = ModSwitchToTorus(1, 8);
+    for (int i = 0; i < out.lwe_sample_->n(); i++) {
+        out.lwe_sample_->data()[i] = 0;
+    }
+    out.lwe_sample_->data()[out.lwe_sample_->n()] = -mu;
+}
+
+void ConstantOne(Ctxt& out)
+{
+    static const Torus mu = ModSwitchToTorus(1, 8);
+    for (int i = 0; i < out.lwe_sample_->n(); i++) {
+        out.lwe_sample_->data()[i] = 0;
+    }
+    out.lwe_sample_->data()[out.lwe_sample_->n()] = mu;
+}
 } // namespace cufhe

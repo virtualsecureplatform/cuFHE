@@ -1,6 +1,6 @@
 #include <include/cufhe_gpu.cuh>
 
-const size_t N = 20, M = 1000;
+const size_t N = 1, M = 10000;
 
 template <class Launcher, class Verifier>
 void runAndVerify(const char* name, Launcher&& launcher, Verifier&& verifier)

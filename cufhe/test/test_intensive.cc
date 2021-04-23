@@ -70,24 +70,26 @@ void testMux(cufhe::PriKey& sk, cufhe::PubKey& gk)
 
 void testNand(cufhe::PriKey& sk, cufhe::PubKey& gk)
 {
-    cufhe::Ctxt ca, cb, cres[N][M];
+    cufhe::Ctxt ca[N][M], cb[N][M], cres[N][M];
     cufhe::Ptxt pa, pb;
     pa = true;
     pb = false;
     uint32_t expected = !(pa.get() && pb.get());
-    Encrypt(ca, pa, sk);
-    Encrypt(cb, pb, sk);
-    for (size_t i = 0; i < N; i++)
-        for (size_t j = 0; j < M; j++)
+    for (size_t i = 0; i < N; i++) {
+        for (size_t j = 0; j < M; j++) {
+            Encrypt(ca[i][j], pa, sk);
+            Encrypt(cb[i][j], pb, sk);
             if (expected)
                 cufhe::ConstantZero(cres[i][j]);
             else
                 cufhe::ConstantOne(cres[i][j]);
+        }
+    }
 
     runAndVerify(
         "nand",
         [&](size_t i, size_t j, cufhe::Stream st) {
-            cufhe::Nand(cres[i][j], ca, cb, st);
+            cufhe::Nand(cres[i][j], ca[i][j], cb[i][j], st);
         },
         [&](size_t i, size_t j) {
             cufhe::Ptxt decres;

@@ -156,6 +156,7 @@ void NTT1024(FFP* out,
     r[i] = FFP((T)in[(i << 7) | t1d]);
   __syncthreads();
   NTT1024Core(r, temp_shared, twd, twd_sqrt, t1d, t3d);
+  __syncthreads();  // This sync is necessary because the address of `out` can be the same as the one of temp_shared.
   #pragma unroll
   for (int i = 0; i < 8; i ++)
     out[(i << 7) | t1d] = r[i];

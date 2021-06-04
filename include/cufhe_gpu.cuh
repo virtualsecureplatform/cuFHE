@@ -137,6 +137,9 @@ void Mux(Ctxt& out, Ctxt& inc, Ctxt& in1, Ctxt& in0, Stream st);
 bool StreamQuery(Stream st);
 void CtxtCopyH2D(Ctxt& c, Stream st);
 void CtxtCopyD2H(Ctxt& c, Stream st);
+void TRLWElvl1CopyH2D(cuFHETRLWElvl1& c, Stream st);
+void TRLWElvl1CopyD2H(cuFHETRLWElvl1& c, Stream st);
+void TRGSWNTTlvl1CopyH2D(cuFHETRGSWNTTlvl1& c, Stream st);
 
 void gSampleExtractAndKeySwitch(Ctxt& out, const cuFHETRLWElvl1& in, Stream st);
 void gGateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,
@@ -154,5 +157,6 @@ void gXnor(Ctxt& out, Ctxt& in0, Ctxt& in1, Stream st);
 void gNot(Ctxt& out, Ctxt& in, Stream st);
 void gMux(Ctxt& out, Ctxt& inc, Ctxt& in1, Ctxt& in0, Stream st);
 void gCopy(Ctxt& out, Ctxt& in, Stream st);
+void gCMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1, cuFHETRLWElvl1& c0, Stream st);
 
 }  // namespace cufhe

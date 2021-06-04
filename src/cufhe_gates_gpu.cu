@@ -70,6 +70,27 @@ inline void CtxtCopyD2H(Ctxt& c, Stream st)
                     sizeof(c.tlwehost), cudaMemcpyDeviceToHost, st.st());
 }
 
+void TRLWElvl1CopyH2D(cuFHETRLWElvl1& c, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    cudaMemcpyAsync(c.trlwedevices[st.device_id()], c.trlwehost.data(),
+                    sizeof(c.trlwehost), cudaMemcpyHostToDevice, st.st());
+}
+
+void TRLWElvl1CopyD2H(cuFHETRLWElvl1& c, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    cudaMemcpyAsync(c.trlwehost.data(), c.trlwedevices[st.device_id()],
+                    sizeof(c.trlwehost), cudaMemcpyDeviceToHost, st.st());
+}
+
+void TRGSWNTTlvl1CopyH2D(cuFHETRGSWNTTlvl1& c, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    cudaMemcpyAsync(c.trgswdevices[st.device_id()], c.trgswhost.data(),
+                    sizeof(c.trgswhost), cudaMemcpyHostToDevice, st.st());
+}
+
 void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1, cuFHETRLWElvl1& c0,
                                          Stream st)
 {
@@ -85,6 +106,14 @@ void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1, cuF
                         st.device_id());
     cudaMemcpyAsync(res.trlwehost.data(), res.trlwedevices[st.device_id()],
                     sizeof(res.trlwehost), cudaMemcpyDeviceToHost, st.st());
+}
+
+void gCMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1, cuFHETRLWElvl1& c0, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    CMUXNTTkernel(res.trlwedevices[st.device_id()], cs.trgswdevices[st.device_id()],
+                  c1.trlwedevices[st.device_id()], c0.trlwedevices[st.device_id()], st.st(),
+                  st.device_id());
 }
 
 void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,

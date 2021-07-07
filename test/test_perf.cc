@@ -15,7 +15,7 @@ int main()
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
     const uint32_t kNumSMs = 800;
-    const uint32_t kNumTests = 1024;
+    const uint32_t kNumTests = 4096;
 
     TFHEpp::SecretKey* sk = new TFHEpp::SecretKey();
     TFHEpp::GateKeywoFFT* gk = new TFHEpp::GateKeywoFFT(*sk);
@@ -49,7 +49,7 @@ int main()
     for (int i = 0; i < kNumSMs; i++) st[i].Create();
 
     for (int i = 0; i < kNumTests; i++) {
-        GateBootstrappingTLWE2TRLWElvl01NTT(trlweLv1[i], ct[i], st[kNumTests % kNumSMs]);
+        GateBootstrappingTLWE2TRLWElvl01NTT(trlweLv1[i], ct[i], st[i % kNumSMs]);
     }
     Synchronize();
 
@@ -62,8 +62,8 @@ int main()
     cudaEventRecord(start, 0);
 
     for (int i = 0; i < kNumTests; i++) {
-        SampleExtractAndKeySwitch(ctTemp[i], trlweLv1[i], st[kNumTests % kNumSMs]);
-        GateBootstrappingTLWE2TRLWElvl01NTT(trlweLv1Temp[i], ctTemp[i], st[kNumTests % kNumSMs]);
+        SampleExtractAndKeySwitch(ctTemp[i], trlweLv1[i], st[i % kNumSMs]);
+        GateBootstrappingTLWE2TRLWElvl01NTT(trlweLv1Temp[i], ctTemp[i], st[i % kNumSMs]);
     }
     Synchronize();
 

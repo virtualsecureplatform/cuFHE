@@ -25,7 +25,7 @@ OPTION(ENABLE_TEST "Build tests" OFF)
 OPTION(ENABLE_TUTORIAL "Build tutorial" OFF)
 
 add_subdirectory(src)
-add_subdirectory(thirdparties/TFHEpp)
+add_subdirectory(thirdparties)
 
 if(ENABLE_TEST)
     add_subdirectory(test)

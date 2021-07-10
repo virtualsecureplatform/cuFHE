@@ -41,6 +41,8 @@ void Bootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in,
                TFHEpp::lvl1param::T mu, cudaStream_t st, const int gpuNum);
 void BootstrapTLWE2TRLWE(TFHEpp::lvl1param::T* out, TFHEpp::lvl0param::T* in,
                          TFHEpp::lvl1param::T mu, cudaStream_t st, const int gpuNum);
+void SEIandBootstrap2TRLWE(TFHEpp::lvl1param::T* out, TFHEpp::lvl1param::T* in,
+                         lvl1param::T mu, cudaStream_t st, const int gpuNum);
 void SEandKS(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
              cudaStream_t st, const int gpuNum);
 

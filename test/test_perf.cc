@@ -31,10 +31,11 @@ int main()
     random_device seed_gen;
     default_random_engine engine(seed_gen());
     uniform_int_distribution<uint32_t> binary(0, 1);
+    std::vector<uint8_t> p(kNumTests);
     for (int i = 0; i < kNumTests; i++) {
-        auto tmp = binary(engine) > 0;
+        p[i] = binary(engine) > 0;
         ct[i].tlwehost = TFHEpp::tlweSymEncrypt<TFHEpp::lvl0param>(
-            tmp ? TFHEpp::lvl0param::μ : -TFHEpp::lvl0param::μ,
+            p[i] ? TFHEpp::lvl0param::μ : -TFHEpp::lvl0param::μ,
             TFHEpp::lvl0param::α, sk->key.lvl0);
     }
     Synchronize();
@@ -62,8 +63,7 @@ int main()
     cudaEventRecord(start, 0);
 
     for (int i = 0; i < kNumTests; i++) {
-        SampleExtractAndKeySwitch(ctTemp[i], trlweLv1[i], st[i % kNumSMs]);
-        GateBootstrappingTLWE2TRLWElvl01NTT(trlweLv1Temp[i], ctTemp[i], st[i % kNumSMs]);
+        Refresh(trlweLv1Temp[i], trlweLv1[i], st[i % kNumSMs]);
     }
     Synchronize();
 
@@ -75,6 +75,8 @@ int main()
     cout << et / kNumSMs << " ms / stream" << endl;
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
+
+    for(int i = 0; i < kNumTests; i++) assert(p[i] == (TFHEpp::trlweSymDecrypt<TFHEpp::lvl1param>(trlweLv1Temp[i].trlwehost,sk->key.lvl1)[0]?1:0));
 
     for (int i = 0; i < kNumSMs; i++) st[i].Destroy();
     delete[] st;

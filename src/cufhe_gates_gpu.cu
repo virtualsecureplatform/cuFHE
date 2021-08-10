@@ -24,10 +24,9 @@
 #include <unistd.h>
 
 #include <array>
+#include <cloudkey.hpp>
 #include <include/bootstrap_gpu.cuh>
 #include <include/cufhe_gpu.cuh>
-
-#include <cloudkey.hpp>
 #include <params.hpp>
 
 namespace cufhe {
@@ -38,10 +37,7 @@ int streamCount = 0;
 
 void SetGPUNum(int gpuNum) { _gpuNum = gpuNum; }
 
-void Initialize()
-{
-    InitializeNTThandlers(_gpuNum);
-}
+void Initialize() { InitializeNTThandlers(_gpuNum); }
 
 void Initialize(const TFHEpp::GateKeywoFFT& gk)
 {
@@ -70,8 +66,8 @@ inline void CtxtCopyD2H(Ctxt& c, Stream st)
                     sizeof(c.tlwehost), cudaMemcpyDeviceToHost, st.st());
 }
 
-void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1, cuFHETRLWElvl1& c0,
-                                         Stream st)
+void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1,
+             cuFHETRLWElvl1& c0, Stream st)
 {
     cudaSetDevice(st.device_id());
     cudaMemcpyAsync(cs.trgswdevices[st.device_id()], cs.trgswhost.data(),
@@ -80,9 +76,10 @@ void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1, cuF
                     sizeof(c1.trlwehost), cudaMemcpyHostToDevice, st.st());
     cudaMemcpyAsync(c0.trlwedevices[st.device_id()], c0.trlwehost.data(),
                     sizeof(c0.trlwehost), cudaMemcpyHostToDevice, st.st());
-    CMUXNTTkernel(res.trlwedevices[st.device_id()], cs.trgswdevices[st.device_id()],
-                        c1.trlwedevices[st.device_id()], c0.trlwedevices[st.device_id()], st.st(),
-                        st.device_id());
+    CMUXNTTkernel(res.trlwedevices[st.device_id()],
+                  cs.trgswdevices[st.device_id()],
+                  c1.trlwedevices[st.device_id()],
+                  c0.trlwedevices[st.device_id()], st.st(), st.device_id());
     cudaMemcpyAsync(res.trlwehost.data(), res.trlwedevices[st.device_id()],
                     sizeof(res.trlwehost), cudaMemcpyDeviceToHost, st.st());
 }
@@ -93,8 +90,8 @@ void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,
     cudaSetDevice(st.device_id());
     CtxtCopyH2D(in, st);
     BootstrapTLWE2TRLWE(out.trlwedevices[st.device_id()],
-                        in.tlwedevices[st.device_id()], TFHEpp::lvl1param::μ, st.st(),
-                        st.device_id());
+                        in.tlwedevices[st.device_id()], TFHEpp::lvl1param::μ,
+                        st.st(), st.device_id());
     cudaMemcpyAsync(out.trlwehost.data(), out.trlwedevices[st.device_id()],
                     sizeof(out.trlwehost), cudaMemcpyDeviceToHost, st.st());
 }
@@ -104,30 +101,28 @@ void gGateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,
 {
     cudaSetDevice(st.device_id());
     BootstrapTLWE2TRLWE(out.trlwedevices[st.device_id()],
-                        in.tlwedevices[st.device_id()], TFHEpp::lvl1param::μ, st.st(),
-                        st.device_id());
+                        in.tlwedevices[st.device_id()], TFHEpp::lvl1param::μ,
+                        st.st(), st.device_id());
 }
 
-void Refresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in,
-                                         Stream st)
+void Refresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st)
 {
     cudaSetDevice(st.device_id());
     cudaMemcpyAsync(in.trlwedevices[st.device_id()], in.trlwehost.data(),
                     sizeof(in.trlwehost), cudaMemcpyHostToDevice, st.st());
     SEIandBootstrap2TRLWE(out.trlwedevices[st.device_id()],
-                        in.trlwedevices[st.device_id()], TFHEpp::lvl1param::μ, st.st(),
-                        st.device_id());
+                          in.trlwedevices[st.device_id()], TFHEpp::lvl1param::μ,
+                          st.st(), st.device_id());
     cudaMemcpyAsync(out.trlwehost.data(), out.trlwedevices[st.device_id()],
                     sizeof(out.trlwehost), cudaMemcpyDeviceToHost, st.st());
 }
 
-void gRefresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in,
-                                          Stream st)
+void gRefresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st)
 {
     cudaSetDevice(st.device_id());
     BootstrapTLWE2TRLWE(out.trlwedevices[st.device_id()],
-                        in.trlwedevices[st.device_id()], TFHEpp::lvl1param::μ, st.st(),
-                        st.device_id());
+                        in.trlwedevices[st.device_id()], TFHEpp::lvl1param::μ,
+                        st.st(), st.device_id());
 }
 
 void SampleExtractAndKeySwitch(Ctxt& out, const cuFHETRLWElvl1& in, Stream st)
@@ -403,9 +398,9 @@ void NMux(Ctxt& out, Ctxt& inc, Ctxt& in1, Ctxt& in0, Stream st)
     CtxtCopyH2D(in1, st);
     CtxtCopyH2D(in0, st);
     NMuxBootstrap(out.tlwedevices[st.device_id()],
-                 inc.tlwedevices[st.device_id()],
-                 in1.tlwedevices[st.device_id()],
-                 in0.tlwedevices[st.device_id()], st.st(), st.device_id());
+                  inc.tlwedevices[st.device_id()],
+                  in1.tlwedevices[st.device_id()],
+                  in0.tlwedevices[st.device_id()], st.st(), st.device_id());
     CtxtCopyD2H(out, st);
 }
 
@@ -413,9 +408,9 @@ void gNMux(Ctxt& out, Ctxt& inc, Ctxt& in1, Ctxt& in0, Stream st)
 {
     cudaSetDevice(st.device_id());
     NMuxBootstrap(out.tlwedevices[st.device_id()],
-                 inc.tlwedevices[st.device_id()],
-                 in1.tlwedevices[st.device_id()],
-                 in0.tlwedevices[st.device_id()], st.st(), st.device_id());
+                  inc.tlwedevices[st.device_id()],
+                  in1.tlwedevices[st.device_id()],
+                  in0.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
 bool StreamQuery(Stream st)

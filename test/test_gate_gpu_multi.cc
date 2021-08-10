@@ -21,9 +21,11 @@
  */
 
 // Include these two files for GPU computing.
-#include <include/cufhe_gpu.cuh>
-#include "plain.h"
 #include <test/test_util.h>
+
+#include <include/cufhe_gpu.cuh>
+
+#include "plain.h"
 using namespace cufhe;
 
 #include <iostream>
@@ -39,9 +41,9 @@ int main()
     cudaSetDevice(0);
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
-    const uint32_t kNumSMs = prop.multiProcessorCount*gpuNum*10;
+    const uint32_t kNumSMs = prop.multiProcessorCount * gpuNum * 10;
     cout << "Number of streams per GPU:\t" << prop.multiProcessorCount << endl;
-    const uint32_t kNumTests = kNumSMs*10;   // * 8;
+    const uint32_t kNumTests = kNumSMs * 10;  // * 8;
     constexpr uint32_t kNumLevels = 10;  // Gate Types, Mux is counted as 2.
 
     TFHEpp::SecretKey* sk = new TFHEpp::SecretKey();
@@ -60,7 +62,7 @@ int main()
     cout << "------ Initilizating Data on GPU(s) ------" << endl;
     Initialize(*gk);  // essential for GPU computing
 
-    Stream* st = new Stream[kNumSMs*gpuNum];
+    Stream* st = new Stream[kNumSMs * gpuNum];
     for (int i = 0; i < kNumSMs; i++) st[i].Create();
 
     Test("NAND", Nand, NandCheck, pt, ct, st, kNumTests, kNumSMs, *sk);

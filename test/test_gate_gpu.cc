@@ -21,9 +21,11 @@
  */
 
 // Include these two files for GPU computing.
-#include <include/cufhe_gpu.cuh>
-#include "plain.h"
 #include <test/test_util.h>
+
+#include <include/cufhe_gpu.cuh>
+
+#include "plain.h"
 using namespace cufhe;
 
 #include <iostream>
@@ -37,7 +39,7 @@ int main()
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
     const uint32_t kNumSMs = prop.multiProcessorCount;
-    const uint32_t kNumTests = kNumSMs * 32;   // * 8;
+    const uint32_t kNumTests = kNumSMs * 32;  // * 8;
     constexpr uint32_t kNumLevels = 10;  // Gate Types, Mux is counted as 2.
 
     TFHEpp::SecretKey* sk = new TFHEpp::SecretKey();

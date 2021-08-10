@@ -31,15 +31,15 @@ using namespace cufhe;
 
 int main()
 {
-    static_assert(sizeof(FFP)==sizeof(uint64_t));
+    static_assert(sizeof(FFP) == sizeof(uint64_t));
     cudaSetDevice(0);
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
-    const uint32_t kNumSMs = prop.multiProcessorCount*10;
-    const uint32_t kNumTests = kNumSMs * 32;   // * 8;
+    const uint32_t kNumSMs = prop.multiProcessorCount * 10;
+    const uint32_t kNumTests = kNumSMs * 32;  // * 8;
 
     cout << "------ Key Generation ------" << endl;
-    TFHEpp::SecretKey* sk = new TFHEpp::SecretKey();
+    TFHEpp::SecretKey *sk = new TFHEpp::SecretKey();
 
     std::vector<int32_t> ps(kNumTests);
     std::vector<std::array<uint8_t, TFHEpp::lvl1param::n>> p1(kNumTests);
@@ -62,10 +62,12 @@ int main()
 
     for (int i = 0; i < kNumTests; i++)
         for (int j = 0; j < TFHEpp::lvl1param::n; j++)
-            pmu1[i][j] = (p1[i][j] > 0) ? TFHEpp::lvl1param::μ : -TFHEpp::lvl1param::μ;
+            pmu1[i][j] =
+                (p1[i][j] > 0) ? TFHEpp::lvl1param::μ : -TFHEpp::lvl1param::μ;
     for (int i = 0; i < kNumTests; i++)
         for (int j = 0; j < TFHEpp::lvl1param::n; j++)
-            pmu0[i][j] = (p0[i][j] > 0) ? TFHEpp::lvl1param::μ : -TFHEpp::lvl1param::μ;
+            pmu0[i][j] =
+                (p0[i][j] > 0) ? TFHEpp::lvl1param::μ : -TFHEpp::lvl1param::μ;
 
     std::vector<cuFHETRGSWNTTlvl1> csd(kNumTests);
     std::vector<cuFHETRLWElvl1> c1(kNumTests);
@@ -75,28 +77,30 @@ int main()
 
     std::vector<TFHEpp::TRGSW<TFHEpp::lvl1param>> cs(kNumTests);
     for (int i = 0; i < kNumTests; i++)
-        cs[i] =
-            trgswSymEncrypt<TFHEpp::lvl1param>(ps[i], TFHEpp::lvl1param::α, sk->key.lvl1);
-    for (int i = 0; i <kNumTests; i++)
-        c1[i].trlwehost = trlweSymEncrypt<lvl1param>(pmu1[i], lvl1param::α, sk->key.lvl1);
+        cs[i] = trgswSymEncrypt<TFHEpp::lvl1param>(ps[i], TFHEpp::lvl1param::α,
+                                                   sk->key.lvl1);
     for (int i = 0; i < kNumTests; i++)
-        c0[i].trlwehost = trlweSymEncrypt<lvl1param>(pmu0[i], lvl1param::α, sk->key.lvl1);
-    
+        c1[i].trlwehost =
+            trlweSymEncrypt<lvl1param>(pmu1[i], lvl1param::α, sk->key.lvl1);
+    for (int i = 0; i < kNumTests; i++)
+        c0[i].trlwehost =
+            trlweSymEncrypt<lvl1param>(pmu0[i], lvl1param::α, sk->key.lvl1);
 
     cout << "Number of tests:\t" << kNumTests << endl;
 
     cout << "------ Initilizating Data on GPU(s) ------" << endl;
     Initialize();  // essential for GPU computing
 
-    Stream* st = new Stream[kNumSMs];
+    Stream *st = new Stream[kNumSMs];
     for (int i = 0; i < kNumSMs; i++) st[i].Create();
     Synchronize();
 
     cout << "Number of streams:\t" << kNumSMs << endl;
     cout << "Number of tests:\t" << kNumTests << endl;
-    cout << "Number of tests per stream:\t" << kNumTests/kNumSMs << endl;
+    cout << "Number of tests per stream:\t" << kNumTests / kNumSMs << endl;
 
-    for (int i = 0; i < kNumTests; i++) csd[i].trgswhost = TFHEpp::TRGSW2NTT<TFHEpp::lvl1param>(cs[i]);
+    for (int i = 0; i < kNumTests; i++)
+        csd[i].trgswhost = TFHEpp::TRGSW2NTT<TFHEpp::lvl1param>(cs[i]);
 
     float et;
     cudaEvent_t start, stop;
@@ -104,9 +108,10 @@ int main()
     cudaEventCreate(&stop);
     cudaEventRecord(start, 0);
 
-    for (int i = 0; i < kNumTests; i++) CMUXNTT(cres[i],csd[i],c1[i],c0[i],st[i%kNumSMs]);
+    for (int i = 0; i < kNumTests; i++)
+        CMUXNTT(cres[i], csd[i], c1[i], c0[i], st[i % kNumSMs]);
     Synchronize();
-    
+
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&et, start, stop);
@@ -117,11 +122,15 @@ int main()
 
     int count = 0;
     for (int test = 0; test < kNumTests; test++) {
-        pres = TFHEpp::trlweSymDecrypt<TFHEpp::lvl1param>(cres[test].trlwehost, sk->key.lvl1);
+        pres = TFHEpp::trlweSymDecrypt<TFHEpp::lvl1param>(cres[test].trlwehost,
+                                                          sk->key.lvl1);
         for (int i = 0; i < TFHEpp::lvl1param::n; i++)
-            count+=(pres[i] == ((ps[test] > 0) ? p1[test][i] : p0[test][i]) > 0)?0:1;
+            count +=
+                (pres[i] == ((ps[test] > 0) ? p1[test][i] : p0[test][i]) > 0)
+                    ? 0
+                    : 1;
     }
-    std::cout<< "count:" << count << std::endl;
+    std::cout << "count:" << count << std::endl;
     assert(count == 0);
     cout << "Passed" << endl;
 

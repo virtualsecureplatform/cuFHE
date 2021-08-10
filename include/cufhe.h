@@ -35,9 +35,9 @@
 
 #include <array>
 #include <iostream>
+#include <params.hpp>
 #include <vector>
 
-#include <params.hpp>
 #include "details/allocator.h"
 
 namespace cufhe {
@@ -52,7 +52,8 @@ using namespace TFHEpp;
 // Implementation dependent parameter
 constexpr uint32_t NTT_THRED_UNITBIT =
     3;  // How many threads works as one group in NTT algorithm.
-constexpr uint NUM_THREAD4HOMGATE = 2 * lvl1param::l * lvl1param::n >>  NTT_THRED_UNITBIT;
+constexpr uint NUM_THREAD4HOMGATE =
+    2 * lvl1param::l * lvl1param::n >> NTT_THRED_UNITBIT;
 
 /*****************************
  * Essential Data Structures *
@@ -83,7 +84,7 @@ struct cuFHETRLWElvl1 {
     cuFHETRLWElvl1& operator=(const cuFHETRLWElvl1&);
 };
 
-struct cuFHETRGSWNTTlvl1{
+struct cuFHETRGSWNTTlvl1 {
     TFHEpp::TRGSWNTT<TFHEpp::lvl1param> trgswhost;
     std::vector<FFP*> trgswdevices;
     cuFHETRGSWNTTlvl1();

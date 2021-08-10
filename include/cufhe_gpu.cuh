@@ -33,8 +33,8 @@
 #include <cuda_runtime.h>
 
 #include <array>
-
 #include <cloudkey.hpp>
+
 #include "cufhe.h"
 
 namespace cufhe {
@@ -114,13 +114,14 @@ class Stream {
     int _device_id;
 };  // class Stream
 
-void TRGSW2NTT(cuFHETRGSWNTTlvl1& trgswntt, const TFHEpp::TRGSW<TFHEpp::lvl1param>& trgsw, Stream st);
+void TRGSW2NTT(cuFHETRGSWNTTlvl1& trgswntt,
+               const TFHEpp::TRGSW<TFHEpp::lvl1param>& trgsw, Stream st);
 void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,
                                          Stream st);
-void Refresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in,
-                                         Stream st);
+void Refresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st);
 void SampleExtractAndKeySwitch(Ctxt& out, const cuFHETRLWElvl1& in, Stream st);
-void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1, cuFHETRLWElvl1& c0, Stream st);
+void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1,
+             cuFHETRLWElvl1& c0, Stream st);
 void And(Ctxt& out, Ctxt& in0, Ctxt& in1, Stream st);
 void AndYN(Ctxt& out, Ctxt& in0, Ctxt& in1, Stream st);
 void AndNY(Ctxt& out, Ctxt& in0, Ctxt& in1, Stream st);
@@ -144,8 +145,7 @@ void CtxtCopyD2H(Ctxt& c, Stream st);
 void gSampleExtractAndKeySwitch(Ctxt& out, const cuFHETRLWElvl1& in, Stream st);
 void gGateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,
                                           Stream st);
-void gRefresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in,
-                                         Stream st);
+void gRefresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st);
 void gNand(Ctxt& out, Ctxt& in0, Ctxt& in1, Stream st);
 void gOr(Ctxt& out, Ctxt& in0, Ctxt& in1, Stream st);
 void gOrYN(Ctxt& out, Ctxt& in0, Ctxt& in1, Stream st);

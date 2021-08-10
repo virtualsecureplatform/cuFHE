@@ -1,5 +1,6 @@
 // Include these two files for GPU computing.
 #include <include/cufhe_gpu.cuh>
+
 #include "plain.h"
 #include "test_util.h"
 using namespace cufhe;
@@ -50,7 +51,8 @@ int main()
     for (int i = 0; i < kNumSMs; i++) st[i].Create();
 
     for (int i = 0; i < kNumTests; i++) {
-        GateBootstrappingTLWE2TRLWElvl01NTT(trlweLv1[i], ct[i], st[i % kNumSMs]);
+        GateBootstrappingTLWE2TRLWElvl01NTT(trlweLv1[i], ct[i],
+                                            st[i % kNumSMs]);
     }
     Synchronize();
 
@@ -76,7 +78,11 @@ int main()
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
-    for(int i = 0; i < kNumTests; i++) assert(p[i] == (TFHEpp::trlweSymDecrypt<TFHEpp::lvl1param>(trlweLv1Temp[i].trlwehost,sk->key.lvl1)[0]?1:0));
+    for (int i = 0; i < kNumTests; i++)
+        assert(p[i] == (TFHEpp::trlweSymDecrypt<TFHEpp::lvl1param>(
+                            trlweLv1Temp[i].trlwehost, sk->key.lvl1)[0]
+                            ? 1
+                            : 0));
 
     for (int i = 0; i < kNumSMs; i++) st[i].Destroy();
     delete[] st;

@@ -52,6 +52,7 @@ using namespace TFHEpp;
 // Implementation dependent parameter
 constexpr uint32_t NTT_THRED_UNITBIT =
     3;  // How many threads works as one group in NTT algorithm.
+constexpr uint NUM_THREAD4HOMGATE = 2 * lvl1param::l * lvl1param::n >>  NTT_THRED_UNITBIT;
 
 /*****************************
  * Essential Data Structures *

@@ -34,6 +34,8 @@
 #include <vector>
 
 namespace cufhe {
+constexpr uint MEM4HOMGATE = (2*lvl1param::l + 2) * lvl1param::n * sizeof(FFP);
+
 using namespace std;
 using namespace TFHEpp;
 
@@ -224,7 +226,7 @@ __device__ inline void TRLWESubAndDecomposition(
     __syncthreads();  // must
 }
 
-__global__ void __CMUXNTT__(TFHEpp::lvl1param::T* out, const FFP* const tgsw_ntt,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __CMUXNTT__(TFHEpp::lvl1param::T* out, const FFP* const tgsw_ntt,
                                   const TFHEpp::lvl1param::T* const trlwe1,
                                   const TFHEpp::lvl1param::T* const trlwe0,
                                   const CuNTTHandler<> ntt)
@@ -429,7 +431,7 @@ __device__ inline void Accumulate(TFHEpp::lvl1param::T* trlwe,
     __syncthreads();  // must
 }
 
-__global__ void __Bootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __Bootstrap__(TFHEpp::lvl0param::T* out,
                               TFHEpp::lvl0param::T* in,
                               const TFHEpp::lvl1param::T mu,
                               const FFP* const bk,
@@ -471,7 +473,7 @@ __global__ void __SEandKS__(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
     __threadfence();
 }
 
-__global__ void __BootstrapTLWE2TRLWE__(TFHEpp::lvl1param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __BootstrapTLWE2TRLWE__(TFHEpp::lvl1param::T* out,
                                         TFHEpp::lvl0param::T* in,
                                         TFHEpp::lvl1param::T mu, FFP* bk,
                                         CuNTTHandler<> ntt)
@@ -504,7 +506,7 @@ __global__ void __BootstrapTLWE2TRLWE__(TFHEpp::lvl1param::T* out,
     __threadfence();
 }
 
-__global__ void __SEIandBootstrap2TRLWE__(TFHEpp::lvl1param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __SEIandBootstrap2TRLWE__(TFHEpp::lvl1param::T* out,
                                         TFHEpp::lvl1param::T* in,
                                         TFHEpp::lvl1param::T mu, FFP* bk,
                                         TFHEpp::lvl0param::T* ksk,
@@ -576,7 +578,7 @@ __device__ inline void __HomGate__(TFHEpp::lvl0param::T* out,
     __threadfence();
 }
 
-__global__ void __NandBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NandBootstrap__(TFHEpp::lvl0param::T* out,
                                   TFHEpp::lvl0param::T* in0,
                                   TFHEpp::lvl0param::T* in1, FFP* bk,
                                   TFHEpp::lvl0param::T* ksk, CuNTTHandler<> ntt)
@@ -584,7 +586,7 @@ __global__ void __NandBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<-1, -1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __NorBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NorBootstrap__(TFHEpp::lvl0param::T* out,
                                  TFHEpp::lvl0param::T* in0,
                                  TFHEpp::lvl0param::T* in1, FFP* bk,
                                  TFHEpp::lvl0param::T* ksk, CuNTTHandler<> ntt)
@@ -592,7 +594,7 @@ __global__ void __NorBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<-1, -1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __XnorBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __XnorBootstrap__(TFHEpp::lvl0param::T* out,
                                   TFHEpp::lvl0param::T* in0,
                                   TFHEpp::lvl0param::T* in1, FFP* bk,
                                   TFHEpp::lvl0param::T* ksk, CuNTTHandler<> ntt)
@@ -600,7 +602,7 @@ __global__ void __XnorBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<-2, -2, -2 * lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __AndBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndBootstrap__(TFHEpp::lvl0param::T* out,
                                  TFHEpp::lvl0param::T* in0,
                                  TFHEpp::lvl0param::T* in1, FFP* bk,
                                  TFHEpp::lvl0param::T* ksk, CuNTTHandler<> ntt)
@@ -608,7 +610,7 @@ __global__ void __AndBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<1, 1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __OrBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrBootstrap__(TFHEpp::lvl0param::T* out,
                                 TFHEpp::lvl0param::T* in0,
                                 TFHEpp::lvl0param::T* in1, FFP* bk,
                                 TFHEpp::lvl0param::T* ksk, CuNTTHandler<> ntt)
@@ -616,7 +618,7 @@ __global__ void __OrBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<1, 1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __XorBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __XorBootstrap__(TFHEpp::lvl0param::T* out,
                                  TFHEpp::lvl0param::T* in0,
                                  TFHEpp::lvl0param::T* in1, FFP* bk,
                                  TFHEpp::lvl0param::T* ksk, CuNTTHandler<> ntt)
@@ -624,7 +626,7 @@ __global__ void __XorBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<2, 2, 2*lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __AndNYBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndNYBootstrap__(TFHEpp::lvl0param::T* out,
                                    TFHEpp::lvl0param::T* in0,
                                    TFHEpp::lvl0param::T* in1, FFP* bk,
                                    TFHEpp::lvl0param::T* ksk,
@@ -633,7 +635,7 @@ __global__ void __AndNYBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<-1, 1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __AndYNBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndYNBootstrap__(TFHEpp::lvl0param::T* out,
                                    TFHEpp::lvl0param::T* in0,
                                    TFHEpp::lvl0param::T* in1, FFP* bk,
                                    TFHEpp::lvl0param::T* ksk,
@@ -642,7 +644,7 @@ __global__ void __AndYNBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<1, -1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __OrNYBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrNYBootstrap__(TFHEpp::lvl0param::T* out,
                                   TFHEpp::lvl0param::T* in0,
                                   TFHEpp::lvl0param::T* in1, FFP* bk,
                                   TFHEpp::lvl0param::T* ksk, CuNTTHandler<> ntt)
@@ -650,7 +652,7 @@ __global__ void __OrNYBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<-1, 1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __OrYNBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrYNBootstrap__(TFHEpp::lvl0param::T* out,
                                   TFHEpp::lvl0param::T* in0,
                                   TFHEpp::lvl0param::T* in1, FFP* bk,
                                   TFHEpp::lvl0param::T* ksk, CuNTTHandler<> ntt)
@@ -658,7 +660,7 @@ __global__ void __OrYNBootstrap__(TFHEpp::lvl0param::T* out,
     __HomGate__<1, -1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-__global__ void __CopyBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __CopyBootstrap__(TFHEpp::lvl0param::T* out,
                                   TFHEpp::lvl0param::T* in)
 {
     const uint32_t tid = ThisThreadRankInBlock();
@@ -667,7 +669,7 @@ __global__ void __CopyBootstrap__(TFHEpp::lvl0param::T* out,
     __threadfence();
 }
 
-__global__ void __NotBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NotBootstrap__(TFHEpp::lvl0param::T* out,
                                  TFHEpp::lvl0param::T* in)
 {
     const uint32_t tid = ThisThreadRankInBlock();
@@ -677,7 +679,7 @@ __global__ void __NotBootstrap__(TFHEpp::lvl0param::T* out,
 }
 
 // Mux(inc,in1,in0) = inc?in1:in0 = inc&in1 + (!inc)&in0
-__global__ void __MuxBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __MuxBootstrap__(TFHEpp::lvl0param::T* out,
                                  TFHEpp::lvl0param::T* inc,
                                  TFHEpp::lvl0param::T* in1,
                                  TFHEpp::lvl0param::T* in0, FFP* bk,
@@ -734,7 +736,7 @@ __global__ void __MuxBootstrap__(TFHEpp::lvl0param::T* out,
 }
 
 // NMux(inc,in1,in0) = !(inc?in1:in0) = !(inc&in1 + (!inc)&in0)
-__global__ void __NMuxBootstrap__(TFHEpp::lvl0param::T* out,
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NMuxBootstrap__(TFHEpp::lvl0param::T* out,
                                  TFHEpp::lvl0param::T* inc,
                                  TFHEpp::lvl0param::T* in1,
                                  TFHEpp::lvl0param::T* in0, FFP* bk,
@@ -791,7 +793,6 @@ __global__ void __NMuxBootstrap__(TFHEpp::lvl0param::T* out,
     __threadfence();
 }
 
-constexpr uint NUM_THREAD4HOMGATE = 2 * lvl1param::l * lvl1param::n >>  NTT_THRED_UNITBIT;
 
 void Bootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in,
                lvl1param::T mu, cudaStream_t st, const int gpuNum)
@@ -821,8 +822,6 @@ void CMUXNTTkernel(TFHEpp::lvl1param::T* res, const FFP* const cs, TFHEpp::lvl1p
         (res, cs, c1, c0, *ntt_handlers[gpuNum]);
     CuCheckError();
 }
-
-constexpr uint MEM4HOMGATE = (2*lvl1param::l + 2) * lvl1param::n * sizeof(FFP);
 
 void BootstrapTLWE2TRLWE(TFHEpp::lvl1param::T* out, TFHEpp::lvl0param::T* in,
                          lvl1param::T mu, cudaStream_t st, const int gpuNum)

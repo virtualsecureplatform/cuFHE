@@ -197,8 +197,8 @@ __device__ constexpr typename P::T offsetgen()
     return offset;
 }
 
-__device__ inline void PolynomialSubAndDecomposition(
-    FFP* decpoly, const TFHEpp::lvl1param::T* const poly1, const TFHEpp::lvl1param::T* const poly0)
+__device__ inline void TRLWESubAndDecomposition(
+    FFP* dectrlwe, const TFHEpp::lvl1param::T* const trlwe1, const TFHEpp::lvl1param::T* const trlwe0)
 {
     const uint32_t tid = ThisThreadRankInBlock();
     const uint32_t bdim = ThisBlockSize();
@@ -208,40 +208,44 @@ __device__ inline void PolynomialSubAndDecomposition(
     constexpr typename lvl1param::T roundoffset = 1ULL<<(std::numeric_limits<typename lvl1param::T>::digits-lvl1param::l*lvl1param::Bgbit-1);
 #pragma unroll
     for (int i = tid; i < lvl1param::n; i += bdim) {
-        // decomp temp
-        lvl1param::T temp = poly1[i]-poly0[i]+decomp_offset+roundoffset;
-#pragma unroll
-        for (int digit = 0; digit < lvl1param::l; digit += 1)
-            decpoly[digit * lvl1param::n + i] = FFP(lvl1param::T(
-                ((temp >> (std::numeric_limits<typename lvl1param::T>::digits -
-                           (digit + 1) * lvl1param::Bgbit)) &
-                 decomp_mask) -
-                decomp_half));
+        #pragma unroll
+        for(int j = 0; j < 2; j ++){
+            // decomp temp
+            lvl1param::T temp = trlwe1[j*lvl1param::n+i]-trlwe0[j*lvl1param::n+i]+decomp_offset+roundoffset;
+    #pragma unroll
+            for (int digit = 0; digit < lvl1param::l; digit += 1)
+                dectrlwe[j*lvl1param::l*lvl1param::n+digit * lvl1param::n + i] = FFP(lvl1param::T(
+                    ((temp >> (std::numeric_limits<typename lvl1param::T>::digits -
+                            (digit + 1) * lvl1param::Bgbit)) &
+                    decomp_mask) -
+                    decomp_half));
+        }
     }
     __syncthreads();  // must
 }
 
 __global__ void __CMUXNTT__(TFHEpp::lvl1param::T* out, const FFP* const tgsw_ntt,
-                                  const TFHEpp::lvl1param::T* const tlwe1,
-                                  const TFHEpp::lvl1param::T* const tlwe0,
+                                  const TFHEpp::lvl1param::T* const trlwe1,
+                                  const TFHEpp::lvl1param::T* const trlwe0,
                                   const CuNTTHandler<> ntt)
 {
     const uint32_t tid = ThisThreadRankInBlock();
     const uint32_t bdim = ThisBlockSize();
 
-    __shared__ FFP sh[(2 + lvl1param::l + 1) * lvl1param::n];
-    FFP* sh_res_ntt = &sh[0];
-    FFP* decpoly = &sh[2 * lvl1param::n];
-    // Use Last section to hold tlwe. This may to make these data in serial
+    extern __shared__ FFP sh[];
+    // To hold the data after Decomposition and NTT
+    FFP* sh_acc_ntt = &sh[0];
+    // To hold sum
+    FFP* sh_res_ntt = &sh[2*lvl1param::l*lvl1param::n];
     TFHEpp::lvl1param::T* outtemp =
-        (TFHEpp::lvl1param::T*)&sh[(2 + lvl1param::l) * lvl1param::n];
+        (TFHEpp::lvl1param::T*)&sh[0];
 
-    PolynomialSubAndDecomposition(decpoly, &tlwe1[0], &tlwe0[0]);
+    TRLWESubAndDecomposition(sh_acc_ntt, trlwe1, trlwe0);
 
-    // l NTTs
+    // 2*l NTTs
     // Input/output/buffer use the same shared memory location.
-    if (tid < lvl1param::l * (lvl1param::n >> NTT_THRED_UNITBIT)) {
-        FFP* tar = &decpoly[tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
+    if (tid < 2*lvl1param::l * (lvl1param::n >> NTT_THRED_UNITBIT)) {
+        FFP* tar = &sh_acc_ntt[tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
                                        << lvl1param::nbit];
         ntt.NTT<FFP>(tar, tar, tar,
                      tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
@@ -259,59 +263,24 @@ __global__ void __CMUXNTT__(TFHEpp::lvl1param::T* out, const FFP* const tgsw_ntt
 // Multiply with bootstrapping key in global memory.
 #pragma unroll
     for (int i = tid; i < lvl1param::n; i += bdim) {
-        sh_res_ntt[i] = decpoly[0 * lvl1param::n + i] *
+        sh_res_ntt[i] = sh_acc_ntt[0 * lvl1param::n + i] *
                         tgsw_ntt[((2 * 0 + 0) << lvl1param::nbit) + i];
         sh_res_ntt[i + lvl1param::n] =
-            decpoly[0 * lvl1param::n + i] *
+            sh_acc_ntt[0 * lvl1param::n + i] *
             tgsw_ntt[((2 * 0 + 1) << lvl1param::nbit) + i];
 #pragma unroll
-        for (int digit = 1; digit < lvl1param::l; digit += 1) {
-            sh_res_ntt[i] += decpoly[digit * lvl1param::n + i] *
+        for (int digit = 1; digit < 2*lvl1param::l; digit += 1) {
+            sh_res_ntt[i] += sh_acc_ntt[digit * lvl1param::n + i] *
                              tgsw_ntt[((2 * digit + 0) << lvl1param::nbit) + i];
             sh_res_ntt[i + lvl1param::n] +=
-                decpoly[digit * lvl1param::n + i] *
+                sh_acc_ntt[digit * lvl1param::n + i] *
                 tgsw_ntt[((2 * digit + 1) << lvl1param::nbit) + i];
         }
     }
     __syncthreads();
 
-    PolynomialSubAndDecomposition(decpoly, &tlwe1[lvl1param::n], &tlwe0[lvl1param::n]);
-    // l NTTs
-    // Input/output/buffer use the same shared memory location.
-    if (tid < lvl1param::l * (lvl1param::n >> NTT_THRED_UNITBIT)) {
-        FFP* tar = &decpoly[tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
-                                       << lvl1param::nbit];
-        ntt.NTT<FFP>(tar, tar, tar,
-                     tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
-                                << (lvl1param::nbit - NTT_THRED_UNITBIT));
-    }
-    else {  // must meet 5 sync made by NTTInv
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-    }
-    __syncthreads();
-    // Multiply with bootstrapping key in global memory.
-#pragma unroll
-    for (int i = tid; i < lvl1param::n; i += bdim) {
-#pragma unroll
-        for (int digit = 0; digit < lvl1param::l; digit += 1) {
-            sh_res_ntt[i] +=
-                decpoly[digit * lvl1param::n + i] *
-                tgsw_ntt[((2 * (digit + lvl1param::l) + 0) << lvl1param::nbit) +
-                         i];
-            sh_res_ntt[i + lvl1param::n] +=
-                decpoly[digit * lvl1param::n + i] *
-                tgsw_ntt[((2 * (digit + lvl1param::l) + 1) << lvl1param::nbit) +
-                         i];
-        }
-    }
-    __syncthreads();
-
     #pragma unroll
-    for (int i = tid; i < 2*lvl1param::n; i += bdim) outtemp[i] = tlwe0[i];
+    for (int i = tid; i < 2*lvl1param::n; i += bdim) outtemp[i] = trlwe0[i];
 
     // 2 NTTInvs and add acc
     if (tid < 2 * (lvl1param::n >> NTT_THRED_UNITBIT)) {
@@ -862,10 +831,12 @@ __global__ void __NMuxBootstrap__(TFHEpp::lvl0param::T* out,
     __threadfence();
 }
 
+constexpr uint NUM_THREAD4HOMGATE = 2 * lvl1param::l * lvl1param::n >>  NTT_THRED_UNITBIT;
+
 void Bootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in,
                lvl1param::T mu, cudaStream_t st, const int gpuNum)
 {
-    __Bootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __Bootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                   st>>>
         (out, in, mu, bk_ntts[gpuNum], ksk_devs[gpuNum], *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -882,9 +853,11 @@ void SEandKS(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
 void CMUXNTTkernel(TFHEpp::lvl1param::T* res, const FFP* const cs, TFHEpp::lvl1param::T* const c1, TFHEpp::lvl1param::T* const c0,
                          cudaStream_t st, const int gpuNum)
 {
-    __CMUXNTT__<<<1, lvl1param::l * lvl1param::n>>
-                                NTT_THRED_UNITBIT,
-                            0, st>>>
+    cudaFuncSetAttribute(
+        __CMUXNTT__, cudaFuncAttributeMaxDynamicSharedMemorySize,
+        (2*lvl1param::l + 2) * lvl1param::n * sizeof(FFP));
+    __CMUXNTT__<<<1, NUM_THREAD4HOMGATE,
+                            (2*lvl1param::l + 2) * lvl1param::n * sizeof(FFP), st>>>
         (res, cs, c1, c0, *ntt_handlers[gpuNum]);
     CuCheckError();
 }
@@ -892,8 +865,7 @@ void CMUXNTTkernel(TFHEpp::lvl1param::T* res, const FFP* const cs, TFHEpp::lvl1p
 void BootstrapTLWE2TRLWE(TFHEpp::lvl1param::T* out, TFHEpp::lvl0param::T* in,
                          lvl1param::T mu, cudaStream_t st, const int gpuNum)
 {
-    __BootstrapTLWE2TRLWE__<<<1, lvl1param::l * lvl1param::n>>
-                                NTT_THRED_UNITBIT,
+    __BootstrapTLWE2TRLWE__<<<1, NUM_THREAD4HOMGATE,
                             0, st>>>
         (out, in, mu, bk_ntts[gpuNum], *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -915,7 +887,7 @@ void SEIandBootstrap2TRLWE(TFHEpp::lvl1param::T* out, TFHEpp::lvl1param::T* in,
 void NandBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                    TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __NandBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __NandBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                       st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -925,7 +897,7 @@ void NandBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
 void OrBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                  TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __OrBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __OrBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                     st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -935,7 +907,7 @@ void OrBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
 void OrYNBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                    TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __OrYNBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __OrYNBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                       st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -945,7 +917,7 @@ void OrYNBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
 void OrNYBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                    TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __OrNYBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __OrNYBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                       st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -955,7 +927,7 @@ void OrNYBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
 void AndBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                   TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __AndBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __AndBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                      st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -965,7 +937,7 @@ void AndBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
 void AndYNBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                     TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __AndYNBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __AndYNBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                        st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -975,7 +947,7 @@ void AndYNBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
 void AndNYBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                     TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __AndNYBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __AndNYBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                        st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -985,7 +957,7 @@ void AndNYBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
 void NorBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                   TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __NorBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __NorBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                      st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -995,7 +967,7 @@ void NorBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
 void XorBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                   TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __XorBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __XorBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                      st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -1005,7 +977,7 @@ void XorBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
 void XnorBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                    TFHEpp::lvl0param::T* in1, cudaStream_t st, const int gpuNum)
 {
-    __XnorBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT, 0,
+    __XnorBootstrap__<<<1, NUM_THREAD4HOMGATE, 0,
                       st>>>
         (out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
          *ntt_handlers[gpuNum]);
@@ -1033,7 +1005,7 @@ void MuxBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* inc,
     cudaFuncSetAttribute(
         __MuxBootstrap__, cudaFuncAttributeMaxDynamicSharedMemorySize,
         (2 + lvl1param::l + 1 + 1) * lvl1param::n * sizeof(FFP));
-    __MuxBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT,
+    __MuxBootstrap__<<<1, NUM_THREAD4HOMGATE,
                      (2 + lvl1param::l + 1 + 1) * lvl1param::n * sizeof(FFP),
                      st>>>
         (out, inc, in1, in0, bk_ntts[gpuNum], ksk_devs[gpuNum],
@@ -1048,7 +1020,7 @@ void NMuxBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* inc,
     cudaFuncSetAttribute(
         __NMuxBootstrap__, cudaFuncAttributeMaxDynamicSharedMemorySize,
         (2 + lvl1param::l + 1 + 1) * lvl1param::n * sizeof(FFP));
-    __NMuxBootstrap__<<<1, lvl1param::l * lvl1param::n>> NTT_THRED_UNITBIT,
+    __NMuxBootstrap__<<<1, NUM_THREAD4HOMGATE,
                      (2 + lvl1param::l + 1 + 1) * lvl1param::n * sizeof(FFP),
                      st>>>
         (out, inc, in1, in0, bk_ntts[gpuNum], ksk_devs[gpuNum],

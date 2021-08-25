@@ -3,8 +3,10 @@ project(cuFHE LANGUAGES CUDA CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 find_package(CUDA)
-# set(CMAKE_CUDA_FLAGS "-std=c++17 --ptxas-options=-v -arch=sm_61")
-set(CMAKE_CUDA_FLAGS "-std=c++17 --ptxas-options=-v -arch=sm_80")
+set(CMAKE_CUDA_FLAGS "-std=c++17 --ptxas-options=-v")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_70,code=sm_70") # V100
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_75,code=sm_75") # GTX 1660 Ti
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_80,code=sm_80") # A100
 
 OPTION(USE_80BIT_SECURITY "Use 80bit security parameter(faster)" OFF)
 OPTION(USE_CGGI19 "Use the parameter set proposed in CGGI19" OFF)

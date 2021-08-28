@@ -1,10 +1,9 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 project(cuFHE LANGUAGES CUDA CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 find_package(CUDA)
-# set(CMAKE_CUDA_FLAGS "-std=c++17 --ptxas-options=-v -arch=sm_61")
-set(CMAKE_CUDA_FLAGS "-std=c++17 --ptxas-options=-v -arch=sm_80")
+set(CMAKE_CUDA_FLAGS "-std=c++17 --ptxas-options=-v")
 
 OPTION(USE_80BIT_SECURITY "Use 80bit security parameter(faster)" OFF)
 OPTION(USE_CGGI19 "Use the parameter set proposed in CGGI19" OFF)

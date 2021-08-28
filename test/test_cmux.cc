@@ -76,9 +76,12 @@ int main()
     Synchronize();
 
     std::vector<TFHEpp::TRGSW<TFHEpp::lvl1param>> cs(kNumTests);
-    for (int i = 0; i < kNumTests; i++)
-        cs[i] = trgswSymEncrypt<TFHEpp::lvl1param>(ps[i], TFHEpp::lvl1param::α,
+    for (int i = 0; i < kNumTests; i++) {
+        Polynomial<TFHEpp::lvl1param> ply = {};
+        ply[0] = ps[i];
+        cs[i] = trgswSymEncrypt<TFHEpp::lvl1param>(ply, TFHEpp::lvl1param::α,
                                                    sk->key.lvl1);
+    }
     for (int i = 0; i < kNumTests; i++)
         c1[i].trlwehost =
             trlweSymEncrypt<lvl1param>(pmu1[i], lvl1param::α, sk->key.lvl1);

@@ -13,3 +13,4 @@ target_include_directories(cufhe_gpu
     ${PROJECT_SOURCE_DIR}/thirdparties/TFHEpp/thirdparties/randen
     ${PROJECT_SOURCE_DIR}/thirdparties/TFHEpp/thirdparties/spqlios
     )
+set_target_properties(cufhe_gpu PROPERTIES CUDA_ARCHITECTURES "70;75;80") # V100, GTX 1660 Ti, A100

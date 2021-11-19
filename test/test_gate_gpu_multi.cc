@@ -47,7 +47,9 @@ int main()
     constexpr uint32_t kNumLevels = 10;  // Gate Types, Mux is counted as 2.
 
     TFHEpp::SecretKey* sk = new TFHEpp::SecretKey();
-    TFHEpp::GateKeywoFFT* gk = new TFHEpp::GateKeywoFFT(*sk);
+    TFHEpp::EvalKey ek;
+    ek.emplacebk<TFHEpp::lvl01param>(*sk);
+    ek.emplaceiksk<TFHEpp::lvl10param>(*sk);
 
     cout << "n:" << sk->params.lvl0.n << endl;
 
@@ -60,7 +62,7 @@ int main()
     cout << "Number of tests:\t" << kNumTests << endl;
 
     cout << "------ Initilizating Data on GPU(s) ------" << endl;
-    Initialize(*gk);  // essential for GPU computing
+    Initialize(ek);  // essential for GPU computing
 
     Stream* st = new Stream[kNumSMs * gpuNum];
     for (int i = 0; i < kNumSMs; i++) st[i].Create();

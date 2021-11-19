@@ -98,8 +98,10 @@ void testNand(TFHEpp::SecretKey& sk)
 int main()
 {
     TFHEpp::SecretKey* sk = new TFHEpp::SecretKey();
-    TFHEpp::GateKeywoFFT* gk = new TFHEpp::GateKeywoFFT(*sk);
-    cufhe::Initialize(*gk);
+    TFHEpp::EvalKey ek;
+    ek.emplacebk<TFHEpp::lvl01param>(*sk);
+    ek.emplaceiksk<TFHEpp::lvl10param>(*sk);
+    cufhe::Initialize(ek);
 
     testNand(*sk);
     testMux(*sk);

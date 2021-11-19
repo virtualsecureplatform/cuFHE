@@ -39,11 +39,11 @@ void SetGPUNum(int gpuNum) { _gpuNum = gpuNum; }
 
 void Initialize() { InitializeNTThandlers(_gpuNum); }
 
-void Initialize(const TFHEpp::GateKeywoFFT& gk)
+void Initialize(const TFHEpp::EvalKey& ek)
 {
     InitializeNTThandlers(_gpuNum);
-    BootstrappingKeyToNTT(gk.bklvl01, _gpuNum);
-    KeySwitchingKeyToDevice(gk.ksk, _gpuNum);
+    BootstrappingKeyToNTT(*ek.bklvl01, _gpuNum);
+    KeySwitchingKeyToDevice(*ek.iksklvl10, _gpuNum);
 }
 
 void CleanUp()

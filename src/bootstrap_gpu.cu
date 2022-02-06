@@ -35,7 +35,7 @@
 
 namespace cufhe {
 constexpr uint MEM4HOMGATE =
-    (2 * lvl1param::l + 2) * lvl1param::n * sizeof(FFP);
+    ((lvl1param::k+1) * lvl1param::l + 1 + lvl1param::k) * lvl1param::n * sizeof(FFP);
 
 using namespace std;
 using namespace TFHEpp;
@@ -48,8 +48,8 @@ __global__ void __TRGSW2NTT__(FFP* bk_ntt, TFHEpp::lvl1param::T* bk,
                               CuNTTHandler<> ntt)
 {
     __shared__ FFP sh_temp[lvl1param::n];
-    const int index = blockIdx.z * (2 * lvl1param::l * 2 * lvl1param::n) +
-                      blockIdx.y * 2 * lvl1param::n + blockIdx.x * lvl1param::n;
+    const int index = blockIdx.z * ((lvl1param::k+1) * lvl1param::l * (lvl1param::k+1) * lvl1param::n) +
+                      blockIdx.y * (lvl1param::k+1) * lvl1param::n + blockIdx.x * lvl1param::n;
     ntt.NTT<lvl1param::T>(&bk_ntt[index], &bk[index], sh_temp, 0);
 }
 
@@ -62,7 +62,7 @@ void TRGSW2NTT(cuFHETRGSWNTTlvl1& trgswntt,
     cudaMemcpyAsync(d_trgsw, trgsw.data(), sizeof(trgsw),
                     cudaMemcpyHostToDevice, st.st());
 
-    dim3 grid(2, 2 * lvl1param::l, 1);
+    dim3 grid(lvl1param::k+1, (lvl1param::k+1) * lvl1param::l, 1);
     dim3 block(lvl1param::n >> NTT_THRED_UNITBIT);
     __TRGSW2NTT__<<<grid, block, 0, st.st()>>>(
         trgswntt.trgswdevices[st.device_id()], d_trgsw,
@@ -104,7 +104,7 @@ void BootstrappingKeyToNTT(const BootstrappingKey<lvl01param>& bk,
         cudaDeviceSynchronize();
         CuCheckError();
 
-        dim3 grid(2, 2 * lvl1param::l, lvl0param::n);
+        dim3 grid(lvl1param::k+1, (lvl1param::k+1) * lvl1param::l, lvl0param::n);
         dim3 block(lvl1param::n >> NTT_THRED_UNITBIT);
         __TRGSW2NTT__<<<grid, block>>>(bk_ntts[i], d_bk, *ntt_handlers[i]);
         cudaDeviceSynchronize();
@@ -165,15 +165,15 @@ __device__ inline void KeySwitch(typename P::targetP::T* lwe,
                P::t * P::basebit);
     const uint32_t tid = ThisThreadRankInBlock();
     const uint32_t bdim = ThisBlockSize();
-    for (int i = tid; i <= P::targetP::n; i += bdim) {
+    for (int i = tid; i <= P::targetP::k*P::targetP::n; i += bdim) {
         typename P::targetP::T res = 0;
         if (i == P::targetP::n) res = tlwe[P::domainP::n];
-        for (int j = 0; j < P::domainP::n; j++) {
+        for (int j = 0; j < P::domainP::k*P::domainP::n; j++) {
             typename P::domainP::T tmp;
             if (j == 0)
                 tmp = tlwe[0];
             else
-                tmp = -tlwe[P::domainP::n - j];
+                tmp = -tlwe[P::domainP::k*P::domainP::n - j];
             tmp += decomp_offset;
             for (int k = 0; k < P::t; k++) {
                 typename P::domainP::T val =
@@ -184,9 +184,9 @@ __device__ inline void KeySwitch(typename P::targetP::T* lwe,
                 if (val != 0) {
                     constexpr int numbase = (1 << P::basebit) - 1;
                     res -= ksk[j * (lvl10param::t * numbase *
-                                    (P::targetP::n + 1)) +
-                               k * (numbase * (P::targetP::n + 1)) +
-                               (val - 1) * (P::targetP::n + 1) + i];
+                                    (P::targetP::k*P::targetP::n + 1)) +
+                               k * (numbase * (P::targetP::k*P::targetP::n + 1)) +
+                               (val - 1) * (P::targetP::k*P::targetP::n + 1) + i];
                 }
             }
         }
@@ -220,7 +220,7 @@ __device__ inline void TRLWESubAndDecomposition(
 #pragma unroll
     for (int i = tid; i < lvl1param::n; i += bdim) {
 #pragma unroll
-        for (int j = 0; j < 2; j++) {
+        for (int j = 0; j < (lvl1param::k+1); j++) {
             // decomp temp
             lvl1param::T temp = trlwe1[j * lvl1param::n + i] -
                                 trlwe0[j * lvl1param::n + i] + decomp_offset +
@@ -252,14 +252,14 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __CMUXNTT__(
     // To hold the data after Decomposition and NTT
     FFP* sh_acc_ntt = &sh[0];
     // To hold sum
-    FFP* sh_res_ntt = &sh[2 * lvl1param::l * lvl1param::n];
+    FFP* sh_res_ntt = &sh[(lvl1param::k+1) * lvl1param::l * lvl1param::n];
     TFHEpp::lvl1param::T* outtemp = (TFHEpp::lvl1param::T*)&sh[0];
 
     TRLWESubAndDecomposition(sh_acc_ntt, trlwe1, trlwe0);
 
-    // 2*l NTTs
+    // (k+1)*l NTTs
     // Input/output/buffer use the same shared memory location.
-    if (tid < 2 * lvl1param::l * (lvl1param::n >> NTT_THRED_UNITBIT)) {
+    if (tid < (lvl1param::k+1) * lvl1param::l * (lvl1param::n >> NTT_THRED_UNITBIT)) {
         FFP* tar = &sh_acc_ntt[tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
                                           << lvl1param::nbit];
         ntt.NTT<FFP>(tar, tar, tar,
@@ -278,27 +278,25 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __CMUXNTT__(
 // Multiply with bootstrapping key in global memory.
 #pragma unroll
     for (int i = tid; i < lvl1param::n; i += bdim) {
-        sh_res_ntt[i] = sh_acc_ntt[0 * lvl1param::n + i] *
-                        tgsw_ntt[((2 * 0 + 0) << lvl1param::nbit) + i];
-        sh_res_ntt[i + lvl1param::n] =
-            sh_acc_ntt[0 * lvl1param::n + i] *
-            tgsw_ntt[((2 * 0 + 1) << lvl1param::nbit) + i];
+        #pragma unroll
+        for(int k = 0; k < lvl1param::k+1; k++)
+        sh_res_ntt[i + k*lvl1param::n] = sh_acc_ntt[0 * lvl1param::n + i] *
+                        tgsw_ntt[(((lvl1param::k+1) * 0 + k) << lvl1param::nbit) + i];
 #pragma unroll
         for (int digit = 1; digit < 2 * lvl1param::l; digit += 1) {
-            sh_res_ntt[i] += sh_acc_ntt[digit * lvl1param::n + i] *
-                             tgsw_ntt[((2 * digit + 0) << lvl1param::nbit) + i];
-            sh_res_ntt[i + lvl1param::n] +=
-                sh_acc_ntt[digit * lvl1param::n + i] *
-                tgsw_ntt[((2 * digit + 1) << lvl1param::nbit) + i];
+            #pragma unroll
+            for(int k = 0; k < lvl1param::k+1; k++)
+            sh_res_ntt[i + k*lvl1param::n] = sh_acc_ntt[digit * lvl1param::n + i] *
+                            tgsw_ntt[(((lvl1param::k+1) * digit + k) << lvl1param::nbit) + i];
         }
     }
     __syncthreads();
 
 #pragma unroll
-    for (int i = tid; i < 2 * lvl1param::n; i += bdim) outtemp[i] = trlwe0[i];
+    for (int i = tid; i < (lvl1param::k+1) * lvl1param::n; i += bdim) outtemp[i] = trlwe0[i];
 
-    // 2 NTTInvs and add acc
-    if (tid < 2 * (lvl1param::n >> NTT_THRED_UNITBIT)) {
+    // k+1 NTTInvs and add acc
+    if (tid < (lvl1param::k+1) * (lvl1param::n >> NTT_THRED_UNITBIT)) {
         FFP* src = &sh_res_ntt[tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
                                           << lvl1param::nbit];
         ntt.NTTInvAdd<typename lvl1param::T>(
@@ -316,7 +314,7 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __CMUXNTT__(
         __syncthreads();
     }
     __syncthreads();  // must
-    for (int i = 0; i < 2 * lvl1param::n; i++) out[i] = outtemp[i];
+    for (int i = 0; i < (lvl1param::k+1) * lvl1param::n; i++) out[i] = outtemp[i];
     __syncthreads();
 }
 
@@ -332,11 +330,12 @@ __device__ inline void RotatedTestVector(TFHEpp::lvl1param::T* tlwe,
     volatile const uint32_t bdim = ThisBlockSize();
 #pragma unroll
     for (int i = tid; i < P::n; i += bdim) {
-        tlwe[i] = 0;  // part a
+        #pragma unroll
+        for(int k = 0; k < P::k; k++) tlwe[i + k*P::n] = 0;  // part a
         if (bar == 2 * P::n)
-            tlwe[i + P::n] = μ;
+            tlwe[i + P::k*P::n] = μ;
         else {
-            tlwe[i + P::n] = ((i < (bar & (P::n - 1))) ^ (bar >> P::nbit))
+            tlwe[i + P::k*P::n] = ((i < (bar & (P::n - 1))) ^ (bar >> P::nbit))
                                  ? -μ
                                  : μ;  // part b
         }
@@ -359,7 +358,7 @@ __device__ inline void PolynomialMulByXaiMinusOneAndDecompositionTRLWE(
 #pragma unroll
     for (int i = tid; i < lvl1param::n; i += bdim) {
 #pragma unroll
-        for (int j = 0; j < 2; j++) {
+        for (int j = 0; j < lvl1param::k+1; j++) {
             // PolynomialMulByXaiMinus
             lvl1param::T temp =
                 trlwe[j * lvl1param::n + ((i - a_bar) & (lvl1param::n - 1))];
@@ -395,9 +394,9 @@ __device__ inline void Accumulate(TFHEpp::lvl1param::T* trlwe, FFP* sh_acc_ntt,
 
     PolynomialMulByXaiMinusOneAndDecompositionTRLWE(sh_acc_ntt, trlwe, a_bar);
 
-    // 2l NTTs
+    // (k+1)l NTTs
     // Input/output/buffer use the same shared memory location.
-    if (tid < 2 * lvl1param::l * (lvl1param::n >> NTT_THRED_UNITBIT)) {
+    if (tid < (lvl1param::k+1) * lvl1param::l * (lvl1param::n >> NTT_THRED_UNITBIT)) {
         FFP* tar = &sh_acc_ntt[tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
                                           << lvl1param::nbit];
         ntt.NTT<FFP>(tar, tar, tar,
@@ -416,26 +415,26 @@ __device__ inline void Accumulate(TFHEpp::lvl1param::T* trlwe, FFP* sh_acc_ntt,
 // Multiply with bootstrapping key in global memory.
 #pragma unroll
     for (int i = tid; i < lvl1param::n; i += bdim) {
-        sh_acc_ntt[2 * lvl1param::l * lvl1param::n + i] =
+        sh_acc_ntt[(lvl1param::k + 1) * lvl1param::l * lvl1param::n + i] =
             sh_acc_ntt[0 * lvl1param::n + i] *
-            tgsw_ntt[((2 * 0 + 1) << lvl1param::nbit) + i];
+            tgsw_ntt[(((lvl1param::k + 1) * 0 + 1) << lvl1param::nbit) + i];
         sh_acc_ntt[i] = sh_acc_ntt[0 * lvl1param::n + i] *
-                        tgsw_ntt[((2 * 0 + 0) << lvl1param::nbit) + i];
+                        tgsw_ntt[(((lvl1param::k + 1) * 0 + 0) << lvl1param::nbit) + i];
 #pragma unroll
-        for (int digit = 1; digit < 2 * lvl1param::l; digit += 1) {
+        for (int digit = 1; digit < (lvl1param::k + 1) * lvl1param::l; digit += 1) {
             sh_acc_ntt[i] += sh_acc_ntt[digit * lvl1param::n + i] *
-                             tgsw_ntt[((2 * digit + 0) << lvl1param::nbit) + i];
-            sh_acc_ntt[2 * lvl1param::l * lvl1param::n + i] +=
+                             tgsw_ntt[(((lvl1param::k + 1) * digit + 0) << lvl1param::nbit) + i];
+            sh_acc_ntt[(lvl1param::k + 1) * lvl1param::l * lvl1param::n + i] +=
                 sh_acc_ntt[digit * lvl1param::n + i] *
-                tgsw_ntt[((2 * digit + 1) << lvl1param::nbit) + i];
+                tgsw_ntt[(((lvl1param::k + 1) * digit + 1) << lvl1param::nbit) + i];
         }
     }
     __syncthreads();
 
-    // 2 NTTInvs and add acc
-    if (tid < 2 * (lvl1param::n >> NTT_THRED_UNITBIT)) {
+    // k+1 NTTInvs and add acc
+    if (tid < (lvl1param::k + 1) * (lvl1param::n >> NTT_THRED_UNITBIT)) {
         FFP* src = &sh_acc_ntt[(tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)) *
-                               2 * lvl1param::l * lvl1param::n];
+                               (lvl1param::k + 1) * lvl1param::l * lvl1param::n];
         ntt.NTTInvAdd<typename lvl1param::T>(
             &trlwe[tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
                               << lvl1param::nbit],
@@ -453,35 +452,39 @@ __device__ inline void Accumulate(TFHEpp::lvl1param::T* trlwe, FFP* sh_acc_ntt,
     __syncthreads();  // must
 }
 
+__device__ inline void __BlindRotate__(TFHEpp::lvl1param::T* out,
+                                   TFHEpp::lvl0param::T* in,
+                                   const TFHEpp::lvl1param::T mu,
+                                   const FFP* const bk,
+                                   CuNTTHandler<> ntt)
+{
+    extern __shared__ FFP sh[];
+    FFP* sh_acc_ntt = &sh[0];
+
+    // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
+    {
+        const uint32_t bar =
+            2 * lvl1param::n -
+            modSwitchFromTorus<lvl1param>(in[lvl0param::k*lvl0param::n]);
+        RotatedTestVector<lvl1param>(out, bar, mu);
+    }
+
+    // accumulate
+    for (int i = 0; i < lvl0param::n; i++) {  // lvl0param::n iterations
+        const uint32_t bar = modSwitchFromTorus<lvl1param>(in[i]);
+        Accumulate(out, sh_acc_ntt, bar,
+                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
+    }
+}
+
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __Bootstrap__(
     TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in,
     const TFHEpp::lvl1param::T mu, const FFP* const bk,
     const TFHEpp::lvl0param::T* const ksk, const CuNTTHandler<> ntt)
 {
-    //  Assert(bk.k() == 1);
-    //  Assert(bk.l() == 2);
-    //  Assert(bk.n() == lvl1param::n);
-    extern __shared__ FFP sh[];
-    FFP* sh_acc_ntt = &sh[0];
-    // Use Last section to hold tlwe. This may to make these data in serial
-    TFHEpp::lvl1param::T* tlwe =
-        (TFHEpp::lvl1param::T*)&sh[(2 * lvl1param::l + 1) * lvl1param::n];
+    __shared__ TFHEpp::lvl1param::T tlwe[(TFHEpp::lvl1param::k+1)*TFHEpp::lvl1param::n]; 
 
-    // test vector
-    // acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
-    {
-        const uint32_t bar =
-            2 * lvl1param::n - modSwitchFromTorus<lvl1param>(in[lvl0param::n]);
-        RotatedTestVector<lvl1param>(tlwe, bar, mu);
-    }
-
-    // accumulate
-    for (int i = 0; i < lvl0param::n; i++) {  // n iterations
-        const uint32_t bar = modSwitchFromTorus<lvl1param>(in[i]);
-        Accumulate(tlwe, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * 2 * 2 * lvl1param::l, ntt);
-    }
-
+    __BlindRotate__(tlwe,in,mu,bk,ntt);
     KeySwitch<lvl10param>(out, tlwe, ksk);
     __threadfence();
 }
@@ -495,7 +498,7 @@ __global__ void __SEandKS__(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
 
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __BootstrapTLWE2TRLWE__(
     TFHEpp::lvl1param::T* out, TFHEpp::lvl0param::T* in,
-    TFHEpp::lvl1param::T mu, FFP* bk, CuNTTHandler<> ntt)
+    TFHEpp::lvl1param::T mu, const FFP* const bk, CuNTTHandler<> ntt)
 {
     //  Assert(bk.k() == 1);
     //  Assert(bk.l() == 2);
@@ -516,7 +519,7 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __BootstrapTLWE2TRLWE__(
     for (int i = 0; i < lvl0param::n; i++) {  // n iterations
         bar = modSwitchFromTorus<lvl1param>(in[i]);
         Accumulate(tlwe, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * 2 * 2 * lvl1param::l, ntt);
+                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
     }
     __syncthreads();
     for (int i = 0; i < 2 * lvl1param::n; i++) {
@@ -527,7 +530,7 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __BootstrapTLWE2TRLWE__(
 
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __SEIandBootstrap2TRLWE__(
     TFHEpp::lvl1param::T* out, TFHEpp::lvl1param::T* in,
-    TFHEpp::lvl1param::T mu, FFP* bk, TFHEpp::lvl0param::T* ksk,
+    TFHEpp::lvl1param::T mu, const FFP* const bk, TFHEpp::lvl0param::T* ksk,
     CuNTTHandler<> ntt)
 {
     //  Assert(bk.k() == 1);
@@ -537,10 +540,10 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __SEIandBootstrap2TRLWE__(
     FFP* sh_acc_ntt = &sh[0];
     // Use Last section to hold tlwe. This may to make these data in serial
     TFHEpp::lvl1param::T* tlwe =
-        (TFHEpp::lvl1param::T*)&sh[(2 * lvl1param::l + 2) * lvl1param::n];
+        (TFHEpp::lvl1param::T*)&sh[((lvl1param::k+1) * lvl1param::l + 2) * lvl1param::n];
 
     lvl0param::T* tlwelvl0 =
-        (lvl0param::T*)&sh[(2 * lvl1param::l + 3) * lvl1param::n];
+        (lvl0param::T*)&sh[((lvl1param::k+1) * lvl1param::l + 2 + lvl1param::k) * lvl1param::n];
 
     KeySwitch<lvl10param>(tlwelvl0, in, ksk);
     __syncthreads();
@@ -555,44 +558,53 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __SEIandBootstrap2TRLWE__(
     for (int i = 0; i < lvl0param::n; i++) {  // n iterations
         bar = modSwitchFromTorus<lvl1param>(tlwelvl0[i]);
         Accumulate(tlwe, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * 2 * 2 * lvl1param::l, ntt);
+                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
     }
     __syncthreads();
-    for (int i = 0; i < 2 * lvl1param::n; i++) {
+    for (int i = 0; i < (lvl1param::k+1) * lvl1param::n; i++) {
         out[i] = tlwe[i];
     }
     __threadfence();
 }
 
 template <int casign, int cbsign, typename lvl0param::T offset>
-__device__ inline void __HomGate__(TFHEpp::lvl0param::T* out,
+__device__ inline void __BlindRotatePreAdd__(TFHEpp::lvl1param::T* out,
                                    TFHEpp::lvl0param::T* in0,
-                                   TFHEpp::lvl0param::T* in1, FFP* bk,
-                                   TFHEpp::lvl0param::T* ksk,
+                                   TFHEpp::lvl0param::T* in1,
+                                   const FFP* const bk,
                                    CuNTTHandler<> ntt)
 {
     extern __shared__ FFP sh[];
     FFP* sh_acc_ntt = &sh[0];
-    // Use Last section to hold tlwe. This may to make these data in serial
-    TFHEpp::lvl1param::T* tlwe =
-        (TFHEpp::lvl1param::T*)&sh[(2 * lvl1param::l + 1) * lvl1param::n];
 
     // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
     {
         const uint32_t bar =
             2 * lvl1param::n -
-            modSwitchFromTorus<lvl1param>(offset + casign * in0[lvl0param::n] +
+            modSwitchFromTorus<lvl1param>(offset + casign * in0[lvl0param::k*lvl0param::n] +
                                           cbsign * in1[lvl0param::n]);
-        RotatedTestVector<lvl1param>(tlwe, bar, lvl1param::μ);
+        RotatedTestVector<lvl1param>(out, bar, lvl1param::μ);
     }
 
     // accumulate
     for (int i = 0; i < lvl0param::n; i++) {  // lvl0param::n iterations
         const uint32_t bar = modSwitchFromTorus<lvl1param>(0 + casign * in0[i] +
                                                            cbsign * in1[i]);
-        Accumulate(tlwe, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * 2 * 2 * lvl1param::l, ntt);
+        Accumulate(out, sh_acc_ntt, bar,
+                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
     }
+}
+
+template <int casign, int cbsign, typename lvl0param::T offset>
+__device__ inline void __HomGate__(TFHEpp::lvl0param::T* out,
+                                   TFHEpp::lvl0param::T* in0,
+                                   TFHEpp::lvl0param::T* in1, const FFP* const bk,
+                                   const TFHEpp::lvl0param::T* const ksk,
+                                   CuNTTHandler<> ntt)
+{
+    __shared__ TFHEpp::lvl1param::T tlwe[(TFHEpp::lvl1param::k+1)*TFHEpp::lvl1param::n]; 
+
+    __BlindRotatePreAdd__<casign,cbsign,offset>(tlwe,in0,in1,bk,ntt);
     KeySwitch<lvl10param>(out, tlwe, ksk);
     __threadfence();
 }
@@ -706,9 +718,9 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __MuxBootstrap__(
     FFP* sh_acc_ntt = &sh[0];
     // Use Last section to hold tlwe. This may to make these data in serial
     TFHEpp::lvl1param::T* tlwe1 =
-        (TFHEpp::lvl1param::T*)&sh[(2 * lvl1param::l + 1) * lvl1param::n];
+        (TFHEpp::lvl1param::T*)&sh[((lvl1param::k+1) * lvl1param::l + 1) * lvl1param::n];
     TFHEpp::lvl1param::T* tlwe0 =
-        (TFHEpp::lvl1param::T*)&sh[(2 * lvl1param::l + 2) * lvl1param::n];
+        (TFHEpp::lvl1param::T*)&sh[((lvl1param::k+1) * lvl1param::l + 2) * lvl1param::n];
     // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
     register uint32_t bar =
         2 * lvl1param::n -
@@ -720,7 +732,7 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __MuxBootstrap__(
     for (int i = 0; i < lvl0param::n; i++) {  // lvl1param::n iterations
         bar = modSwitchFromTorus<lvl1param>(0 + inc[i] + in1[i]);
         Accumulate(tlwe1, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * 2 * 2 * lvl1param::l, ntt);
+                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
     }
 
     bar = 2 * lvl1param::n -
@@ -732,7 +744,7 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __MuxBootstrap__(
     for (int i = 0; i < lvl0param::n; i++) {  // lvl1param::n iterations
         bar = modSwitchFromTorus<lvl1param>(0 - inc[i] + in0[i]);
         Accumulate(tlwe0, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * 2 * 2 * lvl1param::l, ntt);
+                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
     }
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
@@ -777,7 +789,7 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NMuxBootstrap__(
     for (int i = 0; i < lvl0param::n; i++) {  // lvl1param::n iterations
         bar = modSwitchFromTorus<lvl1param>(0 + inc[i] + in1[i]);
         Accumulate(tlwe1, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * 2 * 2 * lvl1param::l, ntt);
+                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
     }
 
     bar = 2 * lvl1param::n -
@@ -789,7 +801,7 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NMuxBootstrap__(
     for (int i = 0; i < lvl0param::n; i++) {  // lvl1param::n iterations
         bar = modSwitchFromTorus<lvl1param>(0 - inc[i] + in0[i]);
         Accumulate(tlwe0, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * 2 * 2 * lvl1param::l, ntt);
+                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
     }
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
@@ -833,7 +845,7 @@ void CMUXNTTkernel(TFHEpp::lvl1param::T* res, const FFP* const cs,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          (2 * lvl1param::l + 2) * lvl1param::n * sizeof(FFP));
     __CMUXNTT__<<<1, NUM_THREAD4HOMGATE,
-                  (2 * lvl1param::l + 2) * lvl1param::n * sizeof(FFP), st>>>(
+                  ((lvl1param::k+1) * lvl1param::l + 2) * lvl1param::n * sizeof(FFP), st>>>(
         res, cs, c1, c0, *ntt_handlers[gpuNum]);
     CuCheckError();
 }
@@ -854,7 +866,7 @@ void SEIandBootstrap2TRLWE(TFHEpp::lvl1param::T* out, TFHEpp::lvl1param::T* in,
 {
     cudaFuncSetAttribute(
         __SEIandBootstrap2TRLWE__, cudaFuncAttributeMaxDynamicSharedMemorySize,
-        ((2 * lvl1param::l + 3) * lvl1param::n + (lvl0param::n + 1) / 2 + 1) *
+        (((lvl1param::k+1) * lvl1param::l + 3) * lvl1param::n + (lvl0param::n + 1) / 2 + 1) *
             sizeof(FFP));
     __SEIandBootstrap2TRLWE__<<<1, lvl1param::l * lvl1param::n>>
                                   NTT_THRED_UNITBIT,
@@ -1008,9 +1020,9 @@ void MuxBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* inc,
 {
     cudaFuncSetAttribute(__MuxBootstrap__,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         (2 * lvl1param::l + 3) * lvl1param::n * sizeof(FFP));
+                         ((lvl1param::k+1) * lvl1param::l + 3) * lvl1param::n * sizeof(FFP));
     __MuxBootstrap__<<<1, NUM_THREAD4HOMGATE,
-                       (2 * lvl1param::l + 3) * lvl1param::n * sizeof(FFP),
+                       ((lvl1param::k+1) * lvl1param::l + 3) * lvl1param::n * sizeof(FFP),
                        st>>>(out, inc, in1, in0, bk_ntts[gpuNum],
                              ksk_devs[gpuNum], *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -1022,9 +1034,9 @@ void NMuxBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* inc,
 {
     cudaFuncSetAttribute(__NMuxBootstrap__,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         (2 * lvl1param::l + 3) * lvl1param::n * sizeof(FFP));
+                         ((lvl1param::k+1) * lvl1param::l + 3) * lvl1param::n * sizeof(FFP));
     __NMuxBootstrap__<<<1, NUM_THREAD4HOMGATE,
-                        (2 * lvl1param::l + 3) * lvl1param::n * sizeof(FFP),
+                        ((lvl1param::k+1) * lvl1param::l + 3) * lvl1param::n * sizeof(FFP),
                         st>>>(out, inc, in1, in0, bk_ntts[gpuNum],
                               ksk_devs[gpuNum], *ntt_handlers[gpuNum]);
     CuCheckError();

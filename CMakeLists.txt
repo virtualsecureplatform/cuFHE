@@ -5,13 +5,21 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(CUDA)
 set(CMAKE_CUDA_FLAGS "--ptxas-options=-v")
 
-OPTION(USE_80BIT_SECURITY "Use 80bit security parameter(faster)" OFF)
-OPTION(USE_CGGI19 "Use the parameter set proposed in CGGI19" OFF)
+option(USE_RANDEN "Use randen as CSPRNG" ON)
+option(USE_80BIT_SECURITY "Use 80bit security parameter(faster)" OFF)
+option(USE_CGGI19 "Use the parameter set proposed in CGGI19" OFF)
+option(USE_CONCRETE "Use the parameter set proposed in CONCRETE" OFF)
+
+if(USE_RANDEN)
+  add_compile_definitions(USE_RANDEN)
+endif()
 
 if(USE_80BIT_SECURITY)
-    add_compile_definitions(USE_80BIT_SECURITY)
+  add_compile_definitions(USE_80BIT_SECURITY)
 elseif(USE_CGGI19)
-    add_compile_definitions(USE_CGGI19)
+  add_compile_definitions(USE_CGGI19)
+elseif(USE_CONCRETE)
+  add_compile_definitions(USE_CONCRETE)
 endif()
 
 # For OpenMP

@@ -49,6 +49,7 @@ void __GenTwd__(FFP* twd, FFP* twd_inv) {
   }
 }
 
+constexpr int numgentwdsqrtthread = 1<<6;
 __global__
 void __GenTwdSqrt__(FFP* twd_sqrt, FFP* twd_sqrt_inv) {
   uint32_t n = TFHEpp::lvl1param::n;
@@ -68,7 +69,7 @@ void CuTwiddle<NEGATIVE_CYCLIC_CONVOLUTION>::Create() {
   this->twd_sqrt_ = this->twd_inv_ + TFHEpp::lvl1param::n;
   this->twd_sqrt_inv_ = this->twd_sqrt_ + TFHEpp::lvl1param::n;
   __GenTwd__<<<1, dim3(numgentwdthread, numgentwdthread, remnumgentwdthreadbit)>>>(this->twd_, this->twd_inv_);
-  __GenTwdSqrt__<<<16, 64>>>(this->twd_sqrt_, this->twd_sqrt_inv_);
+  __GenTwdSqrt__<<<TFHEpp::lvl1param::n/numgentwdsqrtthread, numgentwdsqrtthread>>>(this->twd_sqrt_, this->twd_sqrt_inv_);
   cudaDeviceSynchronize();
   CuCheckError();
 }

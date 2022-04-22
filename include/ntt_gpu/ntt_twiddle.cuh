@@ -28,7 +28,7 @@
 namespace cufhe {
 
 /** All twiddle factors are stored here. */
-template <ConvKind conv_kind = NEGATIVE_CYCLIC_CONVOLUTION>
+template <uint32_t length = 1024, ConvKind conv_kind = NEGATIVE_CYCLIC_CONVOLUTION>
 class CuTwiddle {
 
 public:
@@ -43,7 +43,7 @@ public:
   __host__ __device__ inline
   ~CuTwiddle() {}
 
-  void Create(uint32_t size = 1024);
+  void Create();
 
   void Destroy();
 

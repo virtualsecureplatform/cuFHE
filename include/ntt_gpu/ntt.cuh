@@ -25,13 +25,14 @@
 #include "ntt_ffp.cuh"
 #include "ntt_conv_kind.cuh"
 #include "ntt_1024_device.cuh"
-#include "ntt_1024_twiddle.cuh"
+#include "ntt_twiddle.cuh"
 #include <include/details/math.h>
 #include <include/details/error_gpu.cuh>
+#include <params.hpp>
 
 namespace cufhe {
 
-template <uint32_t length = 1024,
+template <uint32_t length = TFHEpp::lvl1param::n,
           ConvKind conv_kind = NEGATIVE_CYCLIC_CONVOLUTION>
 class CuNTTHandler: public CuTwiddle<conv_kind> {
 public:
@@ -88,6 +89,6 @@ private:
   static const uint32_t kLogLength_ = Log2Const(kLength_);
 }; // class NTTHandler
 
-template class CuNTTHandler<1024, NEGATIVE_CYCLIC_CONVOLUTION>;
+template class CuNTTHandler<TFHEpp::lvl1param::n, NEGATIVE_CYCLIC_CONVOLUTION>;
 
 } // namespace cufhe

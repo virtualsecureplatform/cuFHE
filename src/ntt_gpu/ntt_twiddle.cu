@@ -28,6 +28,9 @@
 
 namespace cufhe {
 
+constexpr int numgentwdthreadbit = 3;
+constexpr int numgentwdthread = 1<<numgentwdthreadbit;
+constexpr int remnumgentwdthreadbit = TFHEpp::lvl1param::nbit % numgentwdthread;
 __global__
 void __GenTwd__(FFP* twd, FFP* twd_inv) {
   uint32_t n = TFHEpp::lvl1param::n;
@@ -36,11 +39,11 @@ void __GenTwd__(FFP* twd, FFP* twd_inv) {
   FFP w = FFP::Root(n);
   FFP t;
   uint32_t e;
-  cid = (threadIdx.z << 6) + (threadIdx.y << 3) + threadIdx.x;
-  for (int i = 0; i < 8; i ++) {
-    e = (threadIdx.z * 8 + threadIdx.y / 4 * 4 + (threadIdx.x % 4))
-      * (i * 8 + (threadIdx.y % 4) * 2 + threadIdx.x / 4);
-    idx = (i * n / 8) + cid;
+  cid = (threadIdx.z << (2*numgentwdthreadbit)) + (threadIdx.y << numgentwdthreadbit) + threadIdx.x;
+  for (int i = 0; i < numgentwdthread; i ++) {
+    e = (threadIdx.z * numgentwdthread + threadIdx.y / 4 * 4 + (threadIdx.x % 4))
+      * (i * numgentwdthread + (threadIdx.y % 4) * 2 + threadIdx.x / 4);
+    idx = (i * n / numgentwdthread) + cid;
     twd[idx] = FFP::Pow(w, e);
     twd_inv[idx] = FFP::Pow(w, (n - e) % n);
   }
@@ -51,7 +54,7 @@ void __GenTwdSqrt__(FFP* twd_sqrt, FFP* twd_sqrt_inv) {
   uint32_t n = TFHEpp::lvl1param::n;
   uint32_t idx = (uint32_t)blockIdx.x * blockDim.x + threadIdx.x;
   FFP w = FFP::Root(2 * n);
-  FFP n_inv = FFP::InvPow2(10);
+  FFP n_inv = FFP::InvPow2(TFHEpp::lvl1param::nbit);
   twd_sqrt[idx] = FFP::Pow(w, idx);
   twd_sqrt_inv[idx] = FFP::Pow(w, (2 * n - idx) % (2 * n)) * n_inv;
 }
@@ -64,7 +67,7 @@ void CuTwiddle<NEGATIVE_CYCLIC_CONVOLUTION>::Create() {
   this->twd_inv_ = this->twd_ + TFHEpp::lvl1param::n;
   this->twd_sqrt_ = this->twd_inv_ + TFHEpp::lvl1param::n;
   this->twd_sqrt_inv_ = this->twd_sqrt_ + TFHEpp::lvl1param::n;
-  __GenTwd__<<<1, dim3(8, 8, 2)>>>(this->twd_, this->twd_inv_);
+  __GenTwd__<<<1, dim3(numgentwdthread, numgentwdthread, remnumgentwdthreadbit)>>>(this->twd_, this->twd_inv_);
   __GenTwdSqrt__<<<16, 64>>>(this->twd_sqrt_, this->twd_sqrt_inv_);
   cudaDeviceSynchronize();
   CuCheckError();

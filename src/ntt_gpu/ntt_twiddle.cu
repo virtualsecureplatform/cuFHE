@@ -30,20 +30,17 @@ namespace cufhe {
 
 constexpr int numgentwdthreadbit = 3;
 constexpr int numgentwdthread = 1<<numgentwdthreadbit;
-constexpr int remnumgentwdthreadbit = TFHEpp::lvl1param::nbit % numgentwdthread;
+constexpr int remnumgentwdthreadbit = TFHEpp::lvl1param::nbit % numgentwdthreadbit;
+constexpr int remnumgentwdthread = 1<<remnumgentwdthreadbit;
 __global__
 void __GenTwd__(FFP* twd, FFP* twd_inv) {
-  uint32_t n = TFHEpp::lvl1param::n;
-  uint32_t idx;
-  uint32_t cid;
+  constexpr uint32_t n = TFHEpp::lvl1param::n;
   FFP w = FFP::Root(n);
-  FFP t;
-  uint32_t e;
-  cid = (threadIdx.z << (2*numgentwdthreadbit)) + (threadIdx.y << numgentwdthreadbit) + threadIdx.x;
+  const uint32_t cid = (threadIdx.z << (2*numgentwdthreadbit)) + (threadIdx.y << numgentwdthreadbit) + threadIdx.x;
   for (int i = 0; i < numgentwdthread; i ++) {
-    e = (threadIdx.z * numgentwdthread + threadIdx.y / 4 * 4 + (threadIdx.x % 4))
+    const uint32_t e = (threadIdx.z * numgentwdthread + threadIdx.y / 4 * 4 + (threadIdx.x % 4))
       * (i * numgentwdthread + (threadIdx.y % 4) * 2 + threadIdx.x / 4);
-    idx = (i * n / numgentwdthread) + cid;
+    const uint32_t idx = (i * n / numgentwdthread) + cid;
     twd[idx] = FFP::Pow(w, e);
     twd_inv[idx] = FFP::Pow(w, (n - e) % n);
   }
@@ -52,7 +49,7 @@ void __GenTwd__(FFP* twd, FFP* twd_inv) {
 constexpr int numgentwdsqrtthread = 1<<6;
 __global__
 void __GenTwdSqrt__(FFP* twd_sqrt, FFP* twd_sqrt_inv) {
-  uint32_t n = TFHEpp::lvl1param::n;
+  constexpr uint32_t n = TFHEpp::lvl1param::n;
   uint32_t idx = (uint32_t)blockIdx.x * blockDim.x + threadIdx.x;
   FFP w = FFP::Root(2 * n);
   FFP n_inv = FFP::InvPow2(TFHEpp::lvl1param::nbit);
@@ -68,7 +65,7 @@ void CuTwiddle<NEGATIVE_CYCLIC_CONVOLUTION>::Create() {
   this->twd_inv_ = this->twd_ + TFHEpp::lvl1param::n;
   this->twd_sqrt_ = this->twd_inv_ + TFHEpp::lvl1param::n;
   this->twd_sqrt_inv_ = this->twd_sqrt_ + TFHEpp::lvl1param::n;
-  __GenTwd__<<<1, dim3(numgentwdthread, numgentwdthread, remnumgentwdthreadbit)>>>(this->twd_, this->twd_inv_);
+  __GenTwd__<<<1, dim3(numgentwdthread, numgentwdthread, remnumgentwdthread)>>>(this->twd_, this->twd_inv_);
   __GenTwdSqrt__<<<TFHEpp::lvl1param::n/numgentwdsqrtthread, numgentwdsqrtthread>>>(this->twd_sqrt_, this->twd_sqrt_inv_);
   cudaDeviceSynchronize();
   CuCheckError();

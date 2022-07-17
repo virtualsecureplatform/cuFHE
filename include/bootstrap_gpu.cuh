@@ -31,10 +31,7 @@ namespace cufhe {
 void InitializeNTThandlers(const int gpuNum);
 void BootstrappingKeyToNTT(
     const TFHEpp::BootstrappingKey<TFHEpp::lvl01param>& bk, const int gpuNum);
-void KeySwitchingKeyToDevice(
-    const TFHEpp::KeySwitchingKey<TFHEpp::lvl10param>& ksk, const int gpuNum);
 void DeleteBootstrappingKeyNTT(const int gpuNum);
-void DeleteKeySwitchingKey(const int gpuNum);
 void CMUXNTTkernel(TFHEpp::lvl1param::T* res, const FFP* const cs,
                    TFHEpp::lvl1param::T* const c1,
                    TFHEpp::lvl1param::T* const c0, cudaStream_t st,
@@ -46,8 +43,6 @@ void BootstrapTLWE2TRLWE(TFHEpp::lvl1param::T* out, TFHEpp::lvl0param::T* in,
                          const int gpuNum);
 void SEIandBootstrap2TRLWE(TFHEpp::lvl1param::T* out, TFHEpp::lvl1param::T* in,
                            lvl1param::T mu, cudaStream_t st, const int gpuNum);
-void SEandKS(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
-             cudaStream_t st, const int gpuNum);
 
 void NandBootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in0,
                    TFHEpp::lvl0param::T* in1, cudaStream_t st,

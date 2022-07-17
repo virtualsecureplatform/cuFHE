@@ -24,6 +24,7 @@
 
 #include <include/bootstrap_gpu.cuh>
 #include <include/gatebootstrapping_gpu.cuh>
+#include <include/keyswitch_gpu.cuh>
 #include <include/cufhe_gpu.cuh>
 #include <include/details/error_gpu.cuh>
 #include <include/ntt_gpu/ntt.cuh>
@@ -39,7 +40,6 @@ using namespace TFHEpp;
 
 vector<FFP*> bk_ntts;
 vector<CuNTTHandler<>*> ntt_handlers;
-vector<lvl0param::T*> ksk_devs;
 
 __global__ void __TRGSW2NTT__(FFP* bk_ntt, TFHEpp::lvl1param::T* bk,
                               CuNTTHandler<> ntt)
@@ -121,66 +121,6 @@ void DeleteBootstrappingKeyNTT(const int gpuNum)
         delete ntt_handlers[i];
     }
     ntt_handlers.clear();
-}
-
-void KeySwitchingKeyToDevice(const KeySwitchingKey<lvl10param>& ksk,
-                             const int gpuNum)
-{
-    ksk_devs.resize(gpuNum);
-    for (int i = 0; i < gpuNum; i++) {
-        cudaSetDevice(i);
-        cudaMalloc((void**)&ksk_devs[i], sizeof(ksk));
-        CuSafeCall(cudaMemcpy(ksk_devs[i], ksk.data(), sizeof(ksk),
-                              cudaMemcpyHostToDevice));
-    }
-}
-
-void DeleteKeySwitchingKey(const int gpuNum)
-{
-    for (int i = 0; i < ksk_devs.size(); i++) {
-        cudaSetDevice(i);
-        cudaFree(ksk_devs[i]);
-    }
-}
-
-template <class P>
-__device__ inline void KeySwitch(typename P::targetP::T* lwe,
-                                 const typename P::domainP::T* const tlwe,
-                                 const typename P::targetP::T* const ksk)
-{
-    constexpr typename P::domainP::T decomp_mask = (1U << P::basebit) - 1;
-    constexpr typename P::domainP::T decomp_offset =
-        1U << (std::numeric_limits<typename P::domainP::T>::digits - 1 -
-               P::t * P::basebit);
-    const uint32_t tid = ThisThreadRankInBlock();
-    const uint32_t bdim = ThisBlockSize();
-    for (int i = tid; i <= P::targetP::k*P::targetP::n; i += bdim) {
-        typename P::targetP::T res = 0;
-        if (i == P::targetP::n) res = tlwe[P::domainP::n];
-        for (int j = 0; j < P::domainP::k*P::domainP::n; j++) {
-            typename P::domainP::T tmp;
-            if (j == 0)
-                tmp = tlwe[0];
-            else
-                tmp = -tlwe[P::domainP::k*P::domainP::n - j];
-            tmp += decomp_offset;
-            for (int k = 0; k < P::t; k++) {
-                typename P::domainP::T val =
-                    (tmp >>
-                     (std::numeric_limits<typename P::domainP::T>::digits -
-                      (k + 1) * P::basebit)) &
-                    decomp_mask;
-                if (val != 0) {
-                    constexpr int numbase = (1 << P::basebit) - 1;
-                    res -= ksk[j * (lvl10param::t * numbase *
-                                    (P::targetP::k*P::targetP::n + 1)) +
-                               k * (numbase * (P::targetP::k*P::targetP::n + 1)) +
-                               (val - 1) * (P::targetP::k*P::targetP::n + 1) + i];
-                }
-            }
-        }
-        lwe[i] = res;
-    }
 }
 
 __device__ inline void TRLWESubAndDecomposition(
@@ -305,13 +245,6 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __Bootstrap__(
 
     __BlindRotate__(tlwe,in,mu,bk,ntt);
     KeySwitch<lvl10param>(out, tlwe, ksk);
-    __threadfence();
-}
-
-__global__ void __SEandKS__(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
-                            FFP* bk, TFHEpp::lvl0param::T* ksk)
-{
-    KeySwitch<lvl10param>(out, in, ksk);
     __threadfence();
 }
 
@@ -626,14 +559,6 @@ void Bootstrap(TFHEpp::lvl0param::T* out, TFHEpp::lvl0param::T* in,
 {
     __Bootstrap__<<<1, NUM_THREAD4HOMGATE, 0, st>>>(
         out, in, mu, bk_ntts[gpuNum], ksk_devs[gpuNum], *ntt_handlers[gpuNum]);
-    CuCheckError();
-}
-
-void SEandKS(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
-             cudaStream_t st, const int gpuNum)
-{
-    __SEandKS__<<<1, lvl0param::n + 1, 0, st>>>(out, in, bk_ntts[gpuNum],
-                                                ksk_devs[gpuNum]);
     CuCheckError();
 }
 

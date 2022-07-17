@@ -3,7 +3,6 @@
 
 #include <include/cufhe.h>
 
-#include <include/bootstrap_gpu.cuh>
 #include <include/cufhe_gpu.cuh>
 #include <include/details/error_gpu.cuh>
 #include <include/ntt_gpu/ntt.cuh>

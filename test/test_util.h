@@ -68,6 +68,7 @@ void Test(string type, Func func, Check check, vector<uint8_t>& pt,
     cout << "Total:" << et << "ms" << endl;
     cout << et / kNumTests << " ms / gate" << endl;
     cout << et / kNumSMs << " ms / stream" << endl;
+    cout <<"Latency: "<< et * kNumSMs / kNumTests << " ms" << endl;
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 

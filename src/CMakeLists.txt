@@ -2,6 +2,7 @@ add_library(cufhe_gpu
     bootstrap_gpu.cu
     cufhe_gates_gpu.cu
     cufhe_gpu.cu
+    keyswitch_gpu.cu
     details/allocator_gpu.cu
     ntt_gpu/ntt_twiddle.cu
     )

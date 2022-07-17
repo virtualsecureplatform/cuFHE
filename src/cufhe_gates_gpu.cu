@@ -26,6 +26,7 @@
 #include <array>
 #include <cloudkey.hpp>
 #include <include/bootstrap_gpu.cuh>
+#include <include/keyswitch_gpu.cuh>
 #include <include/cufhe_gpu.cuh>
 #include <params.hpp>
 
@@ -130,7 +131,7 @@ void SampleExtractAndKeySwitch(Ctxt& out, const cuFHETRLWElvl1& in, Stream st)
     cudaSetDevice(st.device_id());
     cudaMemcpyAsync(in.trlwedevices[st.device_id()], in.trlwehost.data(),
                     sizeof(in.trlwehost), cudaMemcpyHostToDevice, st.st());
-    SEandKS(out.tlwedevices[st.device_id()], in.trlwedevices[st.device_id()],
+    SEIandKS(out.tlwedevices[st.device_id()], in.trlwedevices[st.device_id()],
             st.st(), st.device_id());
     CtxtCopyD2H(out, st);
 }
@@ -140,7 +141,7 @@ void gSampleExtractAndKeySwitch(Ctxt& out, const cuFHETRLWElvl1& in, Stream st)
     cudaSetDevice(st.device_id());
     cudaMemcpyAsync(in.trlwedevices[st.device_id()], in.trlwehost.data(),
                     sizeof(in.trlwehost), cudaMemcpyHostToDevice, st.st());
-    SEandKS(out.tlwedevices[st.device_id()], in.trlwedevices[st.device_id()],
+    SEIandKS(out.tlwedevices[st.device_id()], in.trlwedevices[st.device_id()],
             st.st(), st.device_id());
 }
 

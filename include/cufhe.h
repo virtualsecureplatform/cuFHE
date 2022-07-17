@@ -61,14 +61,15 @@ constexpr uint NUM_THREAD4HOMGATE =
 
 /** Ciphertext. */
 struct Ctxt {
+    using P = TFHEpp::lvl0param;
     Ctxt();
     ~Ctxt();
     Ctxt(const Ctxt& that) = delete;
     Ctxt& operator=(const Ctxt& that) = delete;
 
-    TFHEpp::TLWE<TFHEpp::lvl0param> tlwehost;
+    TFHEpp::TLWE<P> tlwehost;
 
-    std::vector<TFHEpp::lvl0param::T*> tlwedevices;
+    std::vector<typename P::T*> tlwedevices;
 };
 
 /** TRLWE holder */

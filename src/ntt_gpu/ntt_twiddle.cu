@@ -58,7 +58,7 @@ void __GenTwdSqrt__(FFP* twd_sqrt, FFP* twd_sqrt_inv) {
 }
 
 template <>
-void CuTwiddle<NEGATIVE_CYCLIC_CONVOLUTION>::Create() {
+void CuTwiddle<1024, NEGATIVE_CYCLIC_CONVOLUTION>::Create() {
   assert(this->twd_ == nullptr);
   size_t nbytes = sizeof(FFP) * TFHEpp::lvl1param::n * 4;
   this->twd_ = (FFP*)AllocatorGPU::New(nbytes).first;
@@ -72,7 +72,7 @@ void CuTwiddle<NEGATIVE_CYCLIC_CONVOLUTION>::Create() {
 }
 
 template <>
-void CuTwiddle<NEGATIVE_CYCLIC_CONVOLUTION>::Destroy() {
+void CuTwiddle<1024, NEGATIVE_CYCLIC_CONVOLUTION>::Destroy() {
   assert(this->twd_ != nullptr);
   CuSafeCall(cudaFree(this->twd_));
   this->twd_ = nullptr;

@@ -34,7 +34,7 @@ namespace cufhe {
 
 template <uint32_t length = TFHEpp::lvl1param::n,
           ConvKind conv_kind = NEGATIVE_CYCLIC_CONVOLUTION>
-class CuNTTHandler: public CuTwiddle<conv_kind> {
+class CuNTTHandler: public CuTwiddle<length ,conv_kind> {
 public:
 
   __host__ __device__ inline

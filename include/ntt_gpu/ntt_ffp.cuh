@@ -264,6 +264,8 @@ public:
         "}"
         : "+l"(val_)
         : "l"(a.val_), "l"(b.val_), "l"(kModulus_));
+    // val_ = a.val() + b.val();
+    // val_ += static_cast<uint32_t>(-(val_ < b.val() || val_ >= kModulus_));
   }
 
   /** Subtraction in FF(P): val_ = a + b mod P. */

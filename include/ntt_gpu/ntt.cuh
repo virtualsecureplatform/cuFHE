@@ -23,7 +23,6 @@
 #pragma once
 
 #include "ntt_ffp.cuh"
-#include "ntt_conv_kind.cuh"
 #include "ntt_1024_device.cuh"
 #include "ntt_twiddle.cuh"
 #include <include/details/math.h>
@@ -32,9 +31,8 @@
 
 namespace cufhe {
 
-template <uint32_t length = TFHEpp::lvl1param::n,
-          ConvKind conv_kind = NEGATIVE_CYCLIC_CONVOLUTION>
-class CuNTTHandler: public CuTwiddle<length ,conv_kind> {
+template <uint32_t length = TFHEpp::lvl1param::n>
+class CuNTTHandler: public CuTwiddle<length> {
 public:
 
   __host__ __device__ inline
@@ -89,6 +87,6 @@ private:
   static const uint32_t kLogLength_ = Log2Const(kLength_);
 }; // class NTTHandler
 
-template class CuNTTHandler<TFHEpp::lvl1param::n, NEGATIVE_CYCLIC_CONVOLUTION>;
+template class CuNTTHandler<TFHEpp::lvl1param::n>;
 
 } // namespace cufhe

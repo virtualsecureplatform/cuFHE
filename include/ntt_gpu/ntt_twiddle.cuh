@@ -23,12 +23,11 @@
 #pragma once
 
 #include "ntt_ffp.cuh"
-#include "ntt_conv_kind.cuh"
 
 namespace cufhe {
 
 /** All twiddle factors are stored here. */
-template <uint32_t length = 1024, ConvKind conv_kind = NEGATIVE_CYCLIC_CONVOLUTION>
+template <uint32_t length = 1024>
 class CuTwiddle {
 
 public:

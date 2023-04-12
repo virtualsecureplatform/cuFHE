@@ -46,7 +46,6 @@ void __GenTwd__(FFP* twd, FFP* twd_inv) {
   }
 }
 
-constexpr int numgentwdsqrtthread = 1<<6;
 __global__
 void __GenTwdSqrt__(FFP* twd_sqrt, FFP* twd_sqrt_inv) {
   constexpr uint32_t n = TFHEpp::lvl1param::n;
@@ -57,6 +56,7 @@ void __GenTwdSqrt__(FFP* twd_sqrt, FFP* twd_sqrt_inv) {
   twd_sqrt_inv[idx] = FFP::Pow(w, (2 * n - idx) % (2 * n)) * n_inv;
 }
 
+constexpr int numgentwdsqrtthread = 1<<6;
 template <>
 void CuTwiddle<1024>::Create() {
   assert(this->twd_ == nullptr);

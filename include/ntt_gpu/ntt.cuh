@@ -43,13 +43,13 @@ public:
 
   inline
   void CreateConstant() {
-    CuSafeCall(cudaMemcpyToSymbol(con_twd, this->twd_,
+    CuSafeCall(cudaMemcpyToSymbol(con_1024_twd, this->twd_,
         sizeof(FFP) * length, 0,  cudaMemcpyDeviceToDevice));
-    CuSafeCall(cudaMemcpyToSymbol(con_twd_inv, this->twd_inv_,
+    CuSafeCall(cudaMemcpyToSymbol(con_1024_twd_inv, this->twd_inv_,
         sizeof(FFP) * length, 0, cudaMemcpyDeviceToDevice));
-    CuSafeCall(cudaMemcpyToSymbol(con_twd_sqrt, this->twd_sqrt_,
+    CuSafeCall(cudaMemcpyToSymbol(con_1024_twd_sqrt, this->twd_sqrt_,
         sizeof(FFP) * length, 0,  cudaMemcpyDeviceToDevice));
-    CuSafeCall(cudaMemcpyToSymbol(con_twd_sqrt_inv, this->twd_sqrt_inv_,
+    CuSafeCall(cudaMemcpyToSymbol(con_1024_twd_sqrt_inv, this->twd_sqrt_inv_,
         sizeof(FFP) * length, 0, cudaMemcpyDeviceToDevice));
   }
 
@@ -59,7 +59,7 @@ public:
            T* in,
            FFP* sh_temp,
            uint32_t leading_thread = 0) const {
-    NTT1024<T>(out, in, sh_temp, this->twd_, this->twd_sqrt_, leading_thread);
+    NTT1024<T>(out, in, sh_temp, leading_thread);
   }
 
   template <typename T>
@@ -68,7 +68,7 @@ public:
               FFP* in,
               FFP* sh_temp,
               uint32_t leading_thread = 0) const {
-    NTTInv1024<T>(out, in, sh_temp, this->twd_inv_, this->twd_sqrt_inv_,
+    NTTInv1024<T>(out, in, sh_temp,
                   leading_thread);
   }
 
@@ -78,7 +78,7 @@ public:
                  FFP* in,
                  FFP* sh_temp,
                  uint32_t leading_thread = 0) const {
-    NTTInv1024Add<T>(out, in, sh_temp, this->twd_inv_, this->twd_sqrt_inv_,
+    NTTInv1024Add<T>(out, in, sh_temp,
                      leading_thread);
   }
 

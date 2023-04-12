@@ -29,23 +29,21 @@
 
 namespace cufhe {
 
-__constant__ FFP con_twd[1024];
-__constant__ FFP con_twd_inv[1024];
-__constant__ FFP con_twd_sqrt[1024];
-__constant__ FFP con_twd_sqrt_inv[1024];
+__constant__ FFP con_1024_twd[1024];
+__constant__ FFP con_1024_twd_inv[1024];
+__constant__ FFP con_1024_twd_sqrt[1024];
+__constant__ FFP con_1024_twd_sqrt_inv[1024];
 
 __device__ inline
 void NTT1024Core(FFP* r,
                  FFP* s,
-                 const FFP* const twd,
-                 const FFP* const twd_sqrt,
                  const uint32_t& t1d,
                  const uint3& t3d) {
   FFP *ptr = nullptr;
   #pragma unroll
   for (int i = 0; i < 8; i ++)
     //r[i] *= twd_sqrt[(i << 7) | t1d]; // mult twiddle sqrt
-    r[i] *= con_twd_sqrt[(i << 7) | t1d]; // mult twiddle sqrt
+    r[i] *= con_1024_twd_sqrt[(i << 7) | t1d]; // mult twiddle sqrt
   NTT8(r);
   NTT8x2Lsh(r, t3d.z); // if (t1d >= 64) NTT8x2<1>(r);
   ptr = &s[(t3d.y << 7) | (t3d.z << 6) | (t3d.x << 2)];
@@ -70,8 +68,7 @@ void NTT1024Core(FFP* r,
   ptr = &s[t1d];
   #pragma unroll
   for (int i = 0; i < 8; i ++)
-    //r[i] = ptr[i << 7] * twd[(i << 7) | t1d]; // mult twiddle
-    r[i] = ptr[i << 7] * con_twd[(i << 7) | t1d]; // mult twiddle
+    r[i] = ptr[i << 7] * con_1024_twd[(i << 7) | t1d]; // mult twiddle
   NTT8(r);
   #pragma unroll
   for (int i = 0; i < 8; i ++)
@@ -89,8 +86,6 @@ void NTT1024Core(FFP* r,
 __device__ inline
 void NTTInv1024Core(FFP* r,
                     FFP* s,
-                    const FFP* const twd_inv,
-                    const FFP* const twd_sqrt_inv,
                     const uint32_t& t1d,
                     const uint3& t3d) {
 
@@ -119,8 +114,7 @@ void NTTInv1024Core(FFP* r,
   ptr = &s[t1d];
   #pragma unroll
   for (int i = 0; i < 8; i ++)
-    //r[i] = ptr[i << 7] * twd_inv[(i << 7) | t1d]; // mult twiddle
-    r[i] = ptr[i << 7] * con_twd_inv[(i << 7) | t1d]; // mult twiddle
+    r[i] = ptr[i << 7] * con_1024_twd_inv[(i << 7) | t1d]; // mult twiddle
   NTTInv8(r);
   #pragma unroll
   for (int i = 0; i < 8; i ++)
@@ -135,8 +129,7 @@ void NTTInv1024Core(FFP* r,
   NTTInv8(r);
   #pragma unroll
   for (int i = 0; i < 8; i ++)
-    //r[i] *= twd_sqrt_inv[(i << 7) | t1d]; // mult twiddle sqrt
-    r[i] *= con_twd_sqrt_inv[(i << 7) | t1d]; // mult twiddle sqrt
+    r[i] *= con_1024_twd_sqrt_inv[(i << 7) | t1d]; // mult twiddle sqrt
 }
 
 template <typename T>
@@ -144,8 +137,6 @@ __device__
 void NTT1024(FFP* out,
              T* in,
              FFP* temp_shared,
-             const FFP* const twd,
-             const FFP* const twd_sqrt,
              const uint32_t leading_thread) {
   const uint32_t t1d = ThisThreadRankInBlock() - leading_thread;
   uint3 t3d;
@@ -155,7 +146,7 @@ void NTT1024(FFP* out,
   for (int i = 0; i < 8; i ++)
     r[i] = FFP((T)in[(i << 7) | t1d]);
   __syncthreads();
-  NTT1024Core(r, temp_shared, twd, twd_sqrt, t1d, t3d);
+  NTT1024Core(r, temp_shared, t1d, t3d);
   __syncthreads();
   #pragma unroll
   for (int i = 0; i < 8; i ++)
@@ -167,8 +158,6 @@ __device__
 void NTTInv1024(T* out,
                 FFP* in,
                 FFP* temp_shared,
-                const FFP* const twd_inv,
-                const FFP* const twd_sqrt_inv,
                 const uint32_t leading_thread) {
   const uint32_t t1d = ThisThreadRankInBlock() - leading_thread;
   uint3 t3d;
@@ -178,7 +167,7 @@ void NTTInv1024(T* out,
   for (int i = 0; i < 8; i ++)
     r[i] = in[(i << 7) | t1d];
   __syncthreads();
-  NTTInv1024Core(r, temp_shared, twd_inv, twd_sqrt_inv, t1d, t3d);
+  NTTInv1024Core(r, temp_shared, t1d, t3d);
   __syncthreads();
   // mod 2^32 specifically
   constexpr uint64_t med = FFP::kModulus() / 2;
@@ -192,8 +181,6 @@ __device__
 void NTTInv1024Add(T* out,
                    FFP* in,
                    FFP* temp_shared,
-                   const FFP* const twd_inv,
-                   const FFP* const twd_sqrt_inv,
                    const uint32_t leading_thread) {
   const uint32_t t1d = ThisThreadRankInBlock() - leading_thread;
   uint3 t3d;
@@ -203,7 +190,7 @@ void NTTInv1024Add(T* out,
   for (int i = 0; i < 8; i ++)
     r[i] = in[(i << 7) | t1d];
   __syncthreads();
-  NTTInv1024Core(r, temp_shared, twd_inv, twd_sqrt_inv, t1d, t3d);
+  NTTInv1024Core(r, temp_shared, t1d, t3d);
   __syncthreads();
   // mod 2^32 specifically
   constexpr uint64_t med = FFP::kModulus() / 2;

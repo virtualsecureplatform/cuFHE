@@ -55,18 +55,18 @@ public:
 
   template <typename T>
   __device__ inline
-  void NTT(FFP* out,
-           T* in,
-           FFP* sh_temp,
+  void NTT(FFP* const out,
+           const T* const in,
+           FFP* const sh_temp,
            uint32_t leading_thread = 0) const {
     NTT1024<T>(out, in, sh_temp, leading_thread);
   }
 
   template <typename T>
   __device__ inline
-  void NTTInv(T* out,
-              FFP* in,
-              FFP* sh_temp,
+  void NTTInv(T* const out,
+              const FFP* const in,
+              FFP* const sh_temp,
               uint32_t leading_thread = 0) const {
     NTTInv1024<T>(out, in, sh_temp,
                   leading_thread);

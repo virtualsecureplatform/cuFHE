@@ -41,7 +41,7 @@ using namespace TFHEpp;
 vector<FFP*> bk_ntts;
 vector<CuNTTHandler<>*> ntt_handlers;
 
-__global__ void __TRGSW2NTT__(FFP* bk_ntt, TFHEpp::lvl1param::T* bk,
+__global__ void __TRGSW2NTT__(FFP* const bk_ntt, TFHEpp::lvl1param::T* const bk,
                               CuNTTHandler<> ntt)
 {
     __shared__ FFP sh_temp[lvl1param::n];
@@ -51,7 +51,7 @@ __global__ void __TRGSW2NTT__(FFP* bk_ntt, TFHEpp::lvl1param::T* bk,
 }
 
 void TRGSW2NTT(cuFHETRGSWNTTlvl1& trgswntt,
-               const TFHEpp::TRGSW<TFHEpp::lvl1param>& trgsw, Stream st)
+               const TFHEpp::TRGSW<TFHEpp::lvl1param>& trgsw, Stream& st)
 {
     cudaSetDevice(st.device_id());
     TFHEpp::lvl1param::T* d_trgsw;
@@ -124,7 +124,7 @@ void DeleteBootstrappingKeyNTT(const int gpuNum)
 }
 
 __device__ inline void TRLWESubAndDecomposition(
-    FFP* dectrlwe, const TFHEpp::lvl1param::T* const trlwe1,
+    FFP* const dectrlwe, const TFHEpp::lvl1param::T* const trlwe1,
     const TFHEpp::lvl1param::T* const trlwe0)
 {
     const uint32_t tid = ThisThreadRankInBlock();

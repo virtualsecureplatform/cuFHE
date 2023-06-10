@@ -115,7 +115,7 @@ class Stream {
 };  // class Stream
 
 void TRGSW2NTT(cuFHETRGSWNTTlvl1& trgswntt,
-               const TFHEpp::TRGSW<TFHEpp::lvl1param>& trgsw, Stream st);
+               const TFHEpp::TRGSW<TFHEpp::lvl1param>& trgsw, Stream& st);
 void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,
                                          Stream st);
 void Refresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st);

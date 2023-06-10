@@ -40,8 +40,8 @@ constexpr uint dimoverthreadbit = 10 - numdataperthreadbit;
 constexpr uint numdataperthread = 1<<numdataperthreadbit;
 
 __device__ inline
-void NTT1024Core(FFP* r,
-                 FFP* s,
+void NTT1024Core(FFP* const r,
+                 FFP* const s,
                  const uint32_t& t1d,
                  const uint3& t3d) {
   FFP *ptr = nullptr;
@@ -87,8 +87,8 @@ void NTT1024Core(FFP* r,
 }
 
 __device__ inline
-void NTTInv1024Core(FFP* r,
-                    FFP* s,
+void NTTInv1024Core(FFP* const r,
+                    FFP* const s,
                     const uint32_t& t1d,
                     const uint3& t3d) {
 
@@ -136,9 +136,9 @@ void NTTInv1024Core(FFP* r,
 
 template <typename T>
 __device__
-void NTT1024(FFP* out,
-             T* in,
-             FFP* temp_shared,
+void NTT1024(FFP* const out,
+             const T* const in,
+             FFP* const temp_shared,
              const uint32_t leading_thread) {
   const uint32_t t1d = ThisThreadRankInBlock() - leading_thread;
   uint3 t3d;

@@ -157,9 +157,9 @@ void NTT1024(FFP* out,
 
 template <typename T>
 __device__
-void NTTInv1024(T* out,
-                FFP* in,
-                FFP* temp_shared,
+void NTTInv1024(T* const out,
+                const FFP* const in,
+                FFP* const temp_shared,
                 const uint32_t leading_thread) {
   const uint32_t t1d = ThisThreadRankInBlock() - leading_thread;
   uint3 t3d;
@@ -180,9 +180,9 @@ void NTTInv1024(T* out,
 
 template <typename T>
 __device__
-void NTTInv1024Add(T* out,
-                   FFP* in,
-                   FFP* temp_shared,
+void NTTInv1024Add(T* const out,
+                   const FFP* const in,
+                   FFP* const temp_shared,
                    const uint32_t leading_thread) {
   const uint32_t t1d = ThisThreadRankInBlock() - leading_thread;
   uint3 t3d;

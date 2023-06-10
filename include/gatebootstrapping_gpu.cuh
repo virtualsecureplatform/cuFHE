@@ -54,7 +54,7 @@ __device__ inline void RotatedTestVector(TFHEpp::lvl1param::T* tlwe,
 }
 
 __device__ inline void PolynomialMulByXaiMinusOneAndDecompositionTRLWE(
-    FFP* dectrlwe, const TFHEpp::lvl1param::T* const trlwe,
+    FFP* const dectrlwe, const TFHEpp::lvl1param::T* const trlwe,
     const uint32_t a_bar)
 {
     const uint32_t tid = ThisThreadRankInBlock();
@@ -94,7 +94,7 @@ __device__ inline void PolynomialMulByXaiMinusOneAndDecompositionTRLWE(
     __syncthreads();  // must
 }
 
-__device__ inline void Accumulate(TFHEpp::lvl1param::T* trlwe, FFP* sh_acc_ntt,
+__device__ inline void Accumulate(TFHEpp::lvl1param::T* const trlwe, FFP* const sh_acc_ntt,
                                   const uint32_t a_bar,
                                   const FFP* const tgsw_ntt,
                                   const CuNTTHandler<> ntt)

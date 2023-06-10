@@ -12,7 +12,7 @@ namespace cufhe{
 extern vector<lvl0param::T*> ksk_devs;
 
 template <class P>
-__device__ inline void KeySwitch(typename P::targetP::T* lwe,
+__device__ inline void KeySwitch(typename P::targetP::T* const lwe,
                                  const typename P::domainP::T* const tlwe,
                                  const typename P::targetP::T* const ksk)
 {
@@ -56,6 +56,6 @@ void KeySwitchingKeyToDevice(const KeySwitchingKey<lvl10param>& ksk,
 
 void DeleteKeySwitchingKey(const int gpuNum);
 
-void SEIandKS(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
-             cudaStream_t st, const int gpuNum);
+void SEIandKS(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl1param::T* const in,
+             const cudaStream_t& st, const int gpuNum);
 }

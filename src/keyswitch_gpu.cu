@@ -23,17 +23,18 @@ void DeleteKeySwitchingKey(const int gpuNum)
     }
 }
 
-__global__ void __SEIandKS__(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
-                            TFHEpp::lvl0param::T* ksk)
+template<class P>
+__global__ void __SEIandKS__(typename P::targetP::T* const out, const typename P::domainP::T* const in,
+                            const typename P::targetP::T* const ksk)
 {
     KeySwitch<lvl10param>(out, in, ksk);
     __threadfence();
 }
 
-void SEIandKS(TFHEpp::lvl0param::T* out, TFHEpp::lvl1param::T* in,
-             cudaStream_t st, const int gpuNum)
+void SEIandKS(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl1param::T* const in,
+             const cudaStream_t& st, const int gpuNum)
 {
-    __SEIandKS__<<<1, lvl0param::n + 1, 0, st>>>(out, in,
+    __SEIandKS__<TFHEpp::lvl10param><<<1, lvl0param::n + 1, 0, st>>>(out, in,
                                                 ksk_devs[gpuNum]);
     CuCheckError();
 }

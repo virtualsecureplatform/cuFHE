@@ -162,9 +162,10 @@ __device__ inline void Accumulate(TFHEpp::lvl1param::T* const trlwe, FFP* const 
     __syncthreads();  // must
 }
 
-__device__ inline void __BlindRotate__(TFHEpp::lvl1param::T* out,
-                                   TFHEpp::lvl0param::T* in,
-                                   const TFHEpp::lvl1param::T mu,
+template<class P>
+__device__ inline void __BlindRotate__(typename P::targetP::T* const out,
+                                   const typename P::domainP::T* const in,
+                                   const typename P::targetP::T mu,
                                    const FFP* const bk,
                                    CuNTTHandler<> ntt)
 {
@@ -174,23 +175,23 @@ __device__ inline void __BlindRotate__(TFHEpp::lvl1param::T* out,
     // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
     {
         const uint32_t bar =
-            2 * lvl1param::n -
-            modSwitchFromTorus<lvl1param>(in[lvl0param::k*lvl0param::n]);
+            2 * P::targetP::n -
+            modSwitchFromTorus<lvl1param>(in[P::domainP::k*P::domainP::n]);
         RotatedTestVector<lvl1param>(out, bar, mu);
     }
 
     // accumulate
-    for (int i = 0; i < lvl0param::n; i++) {  // lvl0param::n iterations
-        const uint32_t bar = modSwitchFromTorus<lvl1param>(in[i]);
+    for (int i = 0; i < P::domainP::k*P::domainP::n; i++) {  // lvl0param::n iterations
+        const uint32_t bar = modSwitchFromTorus<P::targetP>(in[i]);
         Accumulate(out, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
+                   bk + (i << P::targetP::nbit) * (P::targetP::k+1) * (P::targetP::k+1) * P::targetP::l, ntt);
     }
 }
 
 template <int casign, int cbsign, typename lvl0param::T offset>
-__device__ inline void __BlindRotatePreAdd__(TFHEpp::lvl1param::T* out,
-                                   TFHEpp::lvl0param::T* in0,
-                                   TFHEpp::lvl0param::T* in1,
+__device__ inline void __BlindRotatePreAdd__(TFHEpp::lvl1param::T* const out,
+                                   const TFHEpp::lvl0param::T* const in0,
+                                   const TFHEpp::lvl0param::T* const in1,
                                    const FFP* const bk,
                                    CuNTTHandler<> ntt)
 {

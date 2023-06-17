@@ -94,7 +94,8 @@ __device__ inline void PolynomialMulByXaiMinusOneAndDecompositionTRLWE(
     __syncthreads();  // must
 }
 
-__device__ inline void Accumulate(TFHEpp::lvl1param::T* const trlwe, FFP* const sh_acc_ntt,
+template<class P>
+__device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* const sh_acc_ntt,
                                   const uint32_t a_bar,
                                   const FFP* const tgsw_ntt,
                                   const CuNTTHandler<> ntt)
@@ -106,12 +107,12 @@ __device__ inline void Accumulate(TFHEpp::lvl1param::T* const trlwe, FFP* const 
 
     // (k+1)l NTTs
     // Input/output/buffer use the same shared memory location.
-    if (tid < (lvl1param::k+1) * lvl1param::l * (lvl1param::n >> NTT_THRED_UNITBIT)) {
-        FFP* tar = &sh_acc_ntt[tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
-                                          << lvl1param::nbit];
+    if (tid < (P::targetP::k+1) * P::targetP::l * (P::targetP::n >> NTT_THRED_UNITBIT)) {
+        FFP* tar = &sh_acc_ntt[tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)
+                                          << P::targetP::nbit];
         ntt.NTT<FFP>(tar, tar, tar,
-                     tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
-                                << (lvl1param::nbit - NTT_THRED_UNITBIT));
+                     tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)
+                                << (P::targetP::nbit - NTT_THRED_UNITBIT));
     }
     else {  // must meet 5 sync made by NTTInv
         __syncthreads();
@@ -124,33 +125,33 @@ __device__ inline void Accumulate(TFHEpp::lvl1param::T* const trlwe, FFP* const 
 
 // Multiply with bootstrapping key in global memory.
 #pragma unroll
-    for (int i = tid; i < lvl1param::n; i += bdim) {
-        sh_acc_ntt[(lvl1param::k + 1) * lvl1param::l * lvl1param::n + i] =
-            sh_acc_ntt[0 * lvl1param::n + i] *
-            tgsw_ntt[(((lvl1param::k + 1) * 0 + 1) << lvl1param::nbit) + i];
-        sh_acc_ntt[i] = sh_acc_ntt[0 * lvl1param::n + i] *
-                        tgsw_ntt[(((lvl1param::k + 1) * 0 + 0) << lvl1param::nbit) + i];
+    for (int i = tid; i < P::targetP::n; i += bdim) {
+        sh_acc_ntt[(P::targetP::k + 1) * P::targetP::l * P::targetP::n + i] =
+            sh_acc_ntt[0 * P::targetP::n + i] *
+            tgsw_ntt[(((P::targetP::k + 1) * 0 + 1) << P::targetP::nbit) + i];
+        sh_acc_ntt[i] = sh_acc_ntt[0 * P::targetP::n + i] *
+                        tgsw_ntt[(((P::targetP::k + 1) * 0 + 0) << P::targetP::nbit) + i];
 #pragma unroll
-        for (int digit = 1; digit < (lvl1param::k + 1) * lvl1param::l; digit += 1) {
-            sh_acc_ntt[i] += sh_acc_ntt[digit * lvl1param::n + i] *
-                             tgsw_ntt[(((lvl1param::k + 1) * digit + 0) << lvl1param::nbit) + i];
-            sh_acc_ntt[(lvl1param::k + 1) * lvl1param::l * lvl1param::n + i] +=
-                sh_acc_ntt[digit * lvl1param::n + i] *
-                tgsw_ntt[(((lvl1param::k + 1) * digit + 1) << lvl1param::nbit) + i];
+        for (int digit = 1; digit < (P::targetP::k + 1) * P::targetP::l; digit += 1) {
+            sh_acc_ntt[i] += sh_acc_ntt[digit * P::targetP::n + i] *
+                             tgsw_ntt[(((P::targetP::k + 1) * digit + 0) << P::targetP::nbit) + i];
+            sh_acc_ntt[(P::targetP::k + 1) * P::targetP::l * P::targetP::n + i] +=
+                sh_acc_ntt[digit * P::targetP::n + i] *
+                tgsw_ntt[(((P::targetP::k + 1) * digit + 1) << P::targetP::nbit) + i];
         }
     }
     __syncthreads();
 
     // k+1 NTTInvs and add acc
-    if (tid < (lvl1param::k + 1) * (lvl1param::n >> NTT_THRED_UNITBIT)) {
-        FFP* src = &sh_acc_ntt[(tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)) *
-                               (lvl1param::k + 1) * lvl1param::l * lvl1param::n];
-        ntt.NTTInvAdd<typename lvl1param::T>(
-            &trlwe[tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
-                              << lvl1param::nbit],
+    if (tid < (P::targetP::k + 1) * (P::targetP::n >> NTT_THRED_UNITBIT)) {
+        FFP* src = &sh_acc_ntt[(tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)) *
+                               (P::targetP::k + 1) * P::targetP::l * P::targetP::n];
+        ntt.NTTInvAdd<typename P::targetP::T>(
+            &trlwe[tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)
+                              << P::targetP::nbit],
             src, src,
-            tid >> (lvl1param::nbit - NTT_THRED_UNITBIT)
-                       << (lvl1param::nbit - NTT_THRED_UNITBIT));
+            tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)
+                       << (P::targetP::nbit - NTT_THRED_UNITBIT));
     }
     else {  // must meet 5 sync made by NTTInv
         __syncthreads();
@@ -176,19 +177,19 @@ __device__ inline void __BlindRotate__(typename P::targetP::T* const out,
     {
         const uint32_t bar =
             2 * P::targetP::n -
-            modSwitchFromTorus<lvl1param>(in[P::domainP::k*P::domainP::n]);
-        RotatedTestVector<lvl1param>(out, bar, mu);
+            modSwitchFromTorus<typename P::targetP>(in[P::domainP::k*P::domainP::n]);
+        RotatedTestVector<typename P::targetP>(out, bar, mu);
     }
 
     // accumulate
     for (int i = 0; i < P::domainP::k*P::domainP::n; i++) {  // lvl0param::n iterations
         const uint32_t bar = modSwitchFromTorus<P::targetP>(in[i]);
-        Accumulate(out, sh_acc_ntt, bar,
+        Accumulate<P>(out, sh_acc_ntt, bar,
                    bk + (i << P::targetP::nbit) * (P::targetP::k+1) * (P::targetP::k+1) * P::targetP::l, ntt);
     }
 }
 
-template <int casign, int cbsign, typename lvl0param::T offset>
+template <class P, int casign, int cbsign, typename lvl0param::T offset>
 __device__ inline void __BlindRotatePreAdd__(TFHEpp::lvl1param::T* const out,
                                    const TFHEpp::lvl0param::T* const in0,
                                    const TFHEpp::lvl0param::T* const in1,
@@ -201,18 +202,18 @@ __device__ inline void __BlindRotatePreAdd__(TFHEpp::lvl1param::T* const out,
     // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
     {
         const uint32_t bar =
-            2 * lvl1param::n -
-            modSwitchFromTorus<lvl1param>(offset + casign * in0[lvl0param::k*lvl0param::n] +
-                                          cbsign * in1[lvl0param::n]);
-        RotatedTestVector<lvl1param>(out, bar, lvl1param::μ);
+            2 * P::targetP::n -
+            modSwitchFromTorus<P::targetP>(offset + casign * in0[P::domainP::k*P::domainP::n] +
+                                          cbsign * in1[P::domainP::k*P::domainP::n]);
+        RotatedTestVector<P::targetP>(out, bar, P::targetP::μ);
     }
 
     // accumulate
-    for (int i = 0; i < lvl0param::n; i++) {  // lvl0param::n iterations
-        const uint32_t bar = modSwitchFromTorus<lvl1param>(0 + casign * in0[i] +
+    for (int i = 0; i < P::domainP::n; i++) {  // lvl0param::n iterations
+        const uint32_t bar = modSwitchFromTorus<P::targetP>(0 + casign * in0[i] +
                                                            cbsign * in1[i]);
-        Accumulate(out, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
+        Accumulate<P>(out, sh_acc_ntt, bar,
+                   bk + (i << P::targetP::nbit) * (P::targetP::k+1) * (P::targetP::k+1) * P::targetP::l, ntt);
     }
 }
 }

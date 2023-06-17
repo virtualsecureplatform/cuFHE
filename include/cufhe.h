@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include <bits/stdint-uintn.h>
 #include <math.h>
 #include <time.h>
 

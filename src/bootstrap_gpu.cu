@@ -32,8 +32,9 @@
 #include <vector>
 
 namespace cufhe {
+template<class P = TFHEpp::lvl1param>
 constexpr uint MEM4HOMGATE =
-    ((lvl1param::k+1) * lvl1param::l + 1 + lvl1param::k) * lvl1param::n * sizeof(FFP);
+    ((P::k+1) * P::l + 1 + P::k) * P::n * sizeof(FFP);
 
 using namespace std;
 using namespace TFHEpp;
@@ -310,108 +311,141 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __SEIandBootstrap2TRLWE__(
     __threadfence();
 }
 
-template <class P, int casign, int cbsign, typename P::T offset>
-__device__ inline void __HomGate__(typename P::T* const out,
-                                   const typename P::T* const in0,
-                                   const typename P::T* const in1, const FFP* const bk,
-                                   const TFHEpp::lvl0param::T* const ksk,
+template<class P, uint index>
+__device__ inline void __SampleExtractIndex__(typename P::T* const res, const typename P::T* const in){
+    const uint32_t tid = ThisThreadRankInBlock();
+    const uint32_t bdim = ThisBlockSize();
+    constexpr uint nmask = P::n-1; 
+    for (uint i = tid; i <= P::targetP::k*P::targetP::n; i += bdim) {
+        if (i == P::targetP::k*P::targetP::n){
+            res[P::k*P::n] = in[P::k*P::n+index];
+        }else {
+            const uint k = i >> P::nbit; 
+            const uint n = i & nmask;
+            if (n  <= index) res[index] = in[k*P::n + index - n];
+            else res[index] = -in[k*P::n + P::n + index-n];
+        }
+    }
+}
+
+template <class iksP, class brP, typename brP::targetP::T μ, int casign, int cbsign, typename brP::domainP::T offset>
+__device__ inline void __HomGate__(typename brP::targetP::T* const out,
+                                   const typename iksP::domainP::T* const in0,
+                                   const typename iksP::domainP::T* const in1, const FFP* const bk,
+                                   const typename iksP::targetP::T* const ksk,
                                    const CuNTTHandler<> ntt)
 {
-    __shared__ TFHEpp::lvl1param::T tlwe[(TFHEpp::lvl1param::k+1)*TFHEpp::lvl1param::n]; 
+    __shared__ typename iksP::targetP::T tlwe[iksP::targetP::k*iksP::targetP::n+1]; 
+    __shared__ typename brP::targetP::T trlwe[(brP::targetP::k+1)*brP::targetP::n]; 
 
-    __BlindRotatePreAdd__<TFHEpp::lvl01param, casign,cbsign,offset>(tlwe,in0,in1,bk,ntt);
-    KeySwitch<lvl10param>(out, tlwe, ksk);
+    IdentityKeySwitchPreAdd<iksP>(tlwe, in0, in1, ksk);
+    __BlindRotate__<brP, casign,cbsign,offset>(trlwe, tlwe,bk,ntt);
+    __SampleExtractIndex__<brP::targetP,0>(out,trlwe);
     __threadfence();
 }
 
-template<class P = lvl0param>
+template <class brP, typename brP::targetP::T μ, class iksP, int casign, int cbsign, typename brP::domainP::T offset>
+__device__ inline void __HomGate__(typename iksP::targetP::T* const out,
+                                   const typename brP::domainP::T* const in0,
+                                   const typename brP::domainP::T* const in1, const FFP* const bk,
+                                   const typename iksP::targetP::T* const ksk,
+                                   const CuNTTHandler<> ntt)
+{
+    __shared__ typename brP::targetP::T tlwe[(brP::targetP::k+1)*brP::targetP::n]; 
+
+    __BlindRotatePreAdd__<brP, casign,cbsign,offset>(tlwe,in0,in1,bk,ntt);
+    KeySwitch<iksP>(out, tlwe, ksk);
+    __threadfence();
+}
+
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NandBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, -1, -1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, -1, -1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-template<class P = lvl0param>
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NorBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, -1, -1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, -1, -1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-template<class P = lvl0param>
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __XnorBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, -2, -2, -2 * lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, -2, -2, -2 * lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-template<class P = lvl0param>
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, 1, 1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, 1, 1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-template<class P = lvl0param>
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, 1, 1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, 1, 1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-template<class P = lvl0param>
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __XorBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, 2, 2, 2 * lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, 2, 2, 2 * lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-template<class P = lvl0param>
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndNYBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, -1, 1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, -1, 1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-template<class P = lvl0param>
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndYNBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, 1, -1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, 1, -1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-template<class P = lvl0param>
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrNYBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, -1, 1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, -1, 1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
-template<class P = lvl0param>
+template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrYNBootstrap__(
     TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
     const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<P, 1, -1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, 1, -1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __CopyBootstrap__(
@@ -572,8 +606,8 @@ void BootstrapTLWE2TRLWE(TFHEpp::lvl1param::T* const out, const TFHEpp::lvl0para
 {
     cudaFuncSetAttribute(__BlindRotate__<TFHEpp::lvl01param>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __BlindRotateGlobal__<TFHEpp::lvl01param><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __BlindRotateGlobal__<TFHEpp::lvl01param><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in, mu, bk_ntts[gpuNum], *ntt_handlers[gpuNum]);
     CuCheckError();
 }
@@ -598,11 +632,12 @@ void SEIandBootstrap2TRLWE(TFHEpp::lvl1param::T* const out, const TFHEpp::lvl1pa
 void NandBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                    const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__NandBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+    cudaFuncSetAttribute(__NandBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __NandBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __NandBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -611,11 +646,13 @@ void NandBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* 
 void OrBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                  const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__OrBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+
+    cudaFuncSetAttribute(__OrBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __OrBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __OrBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -624,11 +661,12 @@ void OrBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* co
 void OrYNBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                    const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__OrYNBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+    cudaFuncSetAttribute(__OrYNBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __OrYNBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __OrYNBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -637,11 +675,12 @@ void OrYNBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* 
 void OrNYBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                    const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__OrNYBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+    cudaFuncSetAttribute(__OrNYBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __OrNYBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __OrNYBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -650,11 +689,12 @@ void OrNYBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* 
 void AndBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                   const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__AndBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+    cudaFuncSetAttribute(__AndBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __AndBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __AndBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -663,11 +703,12 @@ void AndBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* c
 void AndYNBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                    const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__AndYNBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+    cudaFuncSetAttribute(__AndYNBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __AndYNBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __AndYNBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -676,11 +717,12 @@ void AndYNBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T*
 void AndNYBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                    const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__AndNYBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+    cudaFuncSetAttribute(__AndNYBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __AndNYBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __AndNYBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -689,11 +731,12 @@ void AndNYBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T*
 void NorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                   const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__NorBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+    cudaFuncSetAttribute(__NorBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __NorBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __NorBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -702,11 +745,12 @@ void NorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* c
 void XorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                   const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__XorBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+    cudaFuncSetAttribute(__XorBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __XorBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __XorBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -715,11 +759,12 @@ void XorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* c
 void XnorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                    const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using P = TFHEpp::lvl0param;
-    cudaFuncSetAttribute(__XnorBootstrap__<P>,
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+    cudaFuncSetAttribute(__XnorBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE);
-    __XnorBootstrap__<P><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE, st>>>(
+                         MEM4HOMGATE<TFHEpp::lvl1param>);
+    __XnorBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();

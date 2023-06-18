@@ -51,40 +51,41 @@ __device__ inline void RotatedTestVector(TFHEpp::lvl1param::T* tlwe,
     __syncthreads();
 }
 
+template<class P>
 __device__ inline void PolynomialMulByXaiMinusOneAndDecompositionTRLWE(
-    FFP* const dectrlwe, const TFHEpp::lvl1param::T* const trlwe,
+    FFP* const dectrlwe, const typename P::T* const trlwe,
     const uint32_t a_bar)
 {
     const uint32_t tid = ThisThreadRankInBlock();
     const uint32_t bdim = ThisBlockSize();
-    constexpr uint32_t decomp_mask = (1 << TFHEpp::lvl1param::Bgbit) - 1;
-    constexpr int32_t decomp_half = 1 << (TFHEpp::lvl1param::Bgbit - 1);
-    constexpr uint32_t decomp_offset = offsetgen<TFHEpp::lvl1param>();
-    constexpr typename TFHEpp::lvl1param::T roundoffset =
-        1ULL << (std::numeric_limits<typename TFHEpp::lvl1param::T>::digits -
-                 TFHEpp::lvl1param::l * TFHEpp::lvl1param::Bgbit - 1);
+    constexpr uint32_t decomp_mask = (1 << P::Bgbit) - 1;
+    constexpr int32_t decomp_half = 1 << (P::Bgbit - 1);
+    constexpr uint32_t decomp_offset = offsetgen<P>();
+    constexpr typename P::T roundoffset =
+        1ULL << (std::numeric_limits<typename P::T>::digits -
+                 P::l * P::Bgbit - 1);
 #pragma unroll
-    for (int i = tid; i < TFHEpp::lvl1param::n; i += bdim) {
+    for (int i = tid; i < P::n; i += bdim) {
 #pragma unroll
-        for (int j = 0; j < TFHEpp::lvl1param::k+1; j++) {
+        for (int j = 0; j < P::k+1; j++) {
             // PolynomialMulByXaiMinus
-            TFHEpp::lvl1param::T temp =
-                trlwe[j * TFHEpp::lvl1param::n + ((i - a_bar) & (TFHEpp::lvl1param::n - 1))];
-            temp = ((i < (a_bar & (TFHEpp::lvl1param::n - 1)) ^
-                     (a_bar >> TFHEpp::lvl1param::nbit)))
+            typename P::T temp =
+                trlwe[j * P::n + ((i - a_bar) & (P::n - 1))];
+            temp = ((i < (a_bar & (P::n - 1)) ^
+                     (a_bar >> P::nbit)))
                        ? -temp
                        : temp;
-            temp -= trlwe[j * TFHEpp::lvl1param::n + i];
+            temp -= trlwe[j * P::n + i];
             // decomp temp
             temp += decomp_offset + roundoffset;
 #pragma unroll
-            for (int digit = 0; digit < TFHEpp::lvl1param::l; digit += 1)
-                dectrlwe[j * TFHEpp::lvl1param::l * TFHEpp::lvl1param::n +
-                         digit * TFHEpp::lvl1param::n + i] =
-                    FFP(TFHEpp::lvl1param::T(
+            for (int digit = 0; digit < P::l; digit += 1)
+                dectrlwe[j * P::l * P::n +
+                         digit * P::n + i] =
+                    FFP(typename P::T(
                         ((temp >>
-                          (std::numeric_limits<typename TFHEpp::lvl1param::T>::digits -
-                           (digit + 1) * TFHEpp::lvl1param::Bgbit)) &
+                          (std::numeric_limits<typename P::T>::digits -
+                           (digit + 1) * P::Bgbit)) &
                          decomp_mask) -
                         decomp_half));
         }
@@ -101,7 +102,7 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
     const uint32_t tid = ThisThreadRankInBlock();
     const uint32_t bdim = ThisBlockSize();
 
-    PolynomialMulByXaiMinusOneAndDecompositionTRLWE(sh_acc_ntt, trlwe, a_bar);
+    PolynomialMulByXaiMinusOneAndDecompositionTRLWE<typename P::targetP>(sh_acc_ntt, trlwe, a_bar);
 
     // (k+1)l NTTs
     // Input/output/buffer use the same shared memory location.

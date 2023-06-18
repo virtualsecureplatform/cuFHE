@@ -38,7 +38,7 @@ int main()
     const uint32_t kNumSMs = prop.multiProcessorCount * 10;
     const uint32_t kNumTests = kNumSMs * 32;  // * 8;
 
-    cout << "------ Key Generation ------" << endl;
+    std::cout << "------ Key Generation ------" << std::endl;
     TFHEpp::SecretKey *sk = new TFHEpp::SecretKey();
 
     std::vector<int32_t> ps(kNumTests);
@@ -53,7 +53,7 @@ int main()
     std::default_random_engine engine(seed_gen());
     std::uniform_int_distribution<uint32_t> binary(0, 1);
 
-    cout << "------ Test Encryption/Decryption ------" << endl;
+    std::cout << "------ Test Encryption/Decryption ------" << std::endl;
     for (int32_t &p : ps) p = binary(engine);
     for (std::array<uint8_t, TFHEpp::lvl1param::n> &i : p1)
         for (uint8_t &p : i) p = binary(engine);
@@ -77,30 +77,30 @@ int main()
 
     std::vector<TFHEpp::TRGSW<TFHEpp::lvl1param>> cs(kNumTests);
     for (int i = 0; i < kNumTests; i++) {
-        Polynomial<TFHEpp::lvl1param> ply = {};
+        TFHEpp::Polynomial<TFHEpp::lvl1param> ply = {};
         ply[0] = ps[i];
-        cs[i] = trgswSymEncrypt<TFHEpp::lvl1param>(ply, TFHEpp::lvl1param::α,
+        cs[i] = TFHEpp::trgswSymEncrypt<TFHEpp::lvl1param>(ply, TFHEpp::lvl1param::α,
                                                    sk->key.lvl1);
     }
     for (int i = 0; i < kNumTests; i++)
         c1[i].trlwehost =
-            trlweSymEncrypt<lvl1param>(pmu1[i], lvl1param::α, sk->key.lvl1);
+            TFHEpp::trlweSymEncrypt<TFHEpp::lvl1param>(pmu1[i], TFHEpp::lvl1param::α, sk->key.lvl1);
     for (int i = 0; i < kNumTests; i++)
         c0[i].trlwehost =
-            trlweSymEncrypt<lvl1param>(pmu0[i], lvl1param::α, sk->key.lvl1);
+            TFHEpp::trlweSymEncrypt<TFHEpp::lvl1param>(pmu0[i], TFHEpp::lvl1param::α, sk->key.lvl1);
 
-    cout << "Number of tests:\t" << kNumTests << endl;
+    std::cout << "Number of tests:\t" << kNumTests << std::endl;
 
-    cout << "------ Initilizating Data on GPU(s) ------" << endl;
+    std::cout << "------ Initilizating Data on GPU(s) ------" << std::endl;
     Initialize();  // essential for GPU computing
 
     Stream *st = new Stream[kNumSMs];
     for (int i = 0; i < kNumSMs; i++) st[i].Create();
     Synchronize();
 
-    cout << "Number of streams:\t" << kNumSMs << endl;
-    cout << "Number of tests:\t" << kNumTests << endl;
-    cout << "Number of tests per stream:\t" << kNumTests / kNumSMs << endl;
+    std::cout << "Number of streams:\t" << kNumSMs << std::endl;
+    std::cout << "Number of tests:\t" << kNumTests << std::endl;
+    std::cout << "Number of tests per stream:\t" << kNumTests / kNumSMs << std::endl;
 
     for (int i = 0; i < kNumTests; i++)
         csd[i].trgswhost = TFHEpp::TRGSW2NTT<TFHEpp::lvl1param>(cs[i]);
@@ -118,8 +118,8 @@ int main()
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&et, start, stop);
-    cout << et / kNumTests << " ms / gate" << endl;
-    cout << et / kNumSMs << " ms / stream" << endl;
+    std::cout << et / kNumTests << " ms / gate" << std::endl;
+    std::cout << et / kNumSMs << " ms / stream" << std::endl;
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
@@ -135,12 +135,12 @@ int main()
     }
     std::cout << "count:" << count << std::endl;
     assert(count == 0);
-    cout << "Passed" << endl;
+    std::cout << "Passed" << std::endl;
 
     for (int i = 0; i < kNumSMs; i++) st[i].Destroy();
     delete[] st;
 
-    cout << "------ Cleaning Data on GPU(s) ------" << endl;
+    std::cout << "------ Cleaning Data on GPU(s) ------" << std::endl;
     CleanUp();  // essential to clean and deallocate data
     return 0;
 }

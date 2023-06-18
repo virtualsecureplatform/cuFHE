@@ -1,15 +1,13 @@
 #pragma once
 
 
-#include <include/cufhe.h>
-
 #include <include/cufhe_gpu.cuh>
 #include <include/details/error_gpu.cuh>
 #include <include/details/utils_gpu.cuh>
 
 namespace cufhe{
 
-extern vector<lvl0param::T*> ksk_devs;
+extern std::vector<TFHEpp::lvl0param::T*> ksk_devs;
 
 template <class P>
 __device__ inline void KeySwitch(typename P::targetP::T* const lwe,
@@ -40,7 +38,7 @@ __device__ inline void KeySwitch(typename P::targetP::T* const lwe,
                     decomp_mask;
                 if (val != 0) {
                     constexpr int numbase = (1 << P::basebit) - 1;
-                    res -= ksk[j * (lvl10param::t * numbase *
+                    res -= ksk[j * (P::t * numbase *
                                     (P::targetP::k*P::targetP::n + 1)) +
                                k * (numbase * (P::targetP::k*P::targetP::n + 1)) +
                                (val - 1) * (P::targetP::k*P::targetP::n + 1) + i];
@@ -51,10 +49,10 @@ __device__ inline void KeySwitch(typename P::targetP::T* const lwe,
     }
 }
 
-template <class P, int casign, int cbsign, typename lvl0param::T offset>
+template <class P, int casign, int cbsign, typename P::domainP::T offset>
 __device__ inline void IdentityKeySwitchPreAdd(typename P::targetP::T* const lwe,
-                                 const TFHEpp::lvl0param::T* const ina,
-                                 const TFHEpp::lvl0param::T* const inb,
+                                 const typename P::domainP::T* const ina,
+                                 const typename P::domainP::T* const inb,
                                  const typename P::targetP::T* const ksk)
 {
     constexpr typename P::domainP::T decomp_mask = (1U << P::basebit) - 1;
@@ -77,7 +75,7 @@ __device__ inline void IdentityKeySwitchPreAdd(typename P::targetP::T* const lwe
                     decomp_mask;
                 if (val != 0) {
                     constexpr int numbase = (1 << P::basebit) - 1;
-                    res -= ksk[j * (lvl10param::t * numbase *
+                    res -= ksk[j * (P::t * numbase *
                                     (P::targetP::k*P::targetP::n + 1)) +
                                k * (numbase * (P::targetP::k*P::targetP::n + 1)) +
                                (val - 1) * (P::targetP::k*P::targetP::n + 1) + i];
@@ -88,7 +86,7 @@ __device__ inline void IdentityKeySwitchPreAdd(typename P::targetP::T* const lwe
     }
 }
 
-void KeySwitchingKeyToDevice(const KeySwitchingKey<lvl10param>& ksk,
+void KeySwitchingKeyToDevice(const TFHEpp::KeySwitchingKey<TFHEpp::lvl10param>& ksk,
                              const int gpuNum);
 
 void DeleteKeySwitchingKey(const int gpuNum);

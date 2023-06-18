@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <include/cufhe.h>
 
 #include <include/bootstrap_gpu.cuh>
 #include <include/gatebootstrapping_gpu.cuh>

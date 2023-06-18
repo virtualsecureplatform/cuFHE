@@ -43,7 +43,7 @@ void BootstrapTLWE2TRLWE(TFHEpp::lvl1param::T* const out, const TFHEpp::lvl0para
                          const TFHEpp::lvl1param::T mu, const cudaStream_t st,
                          const int gpuNum);
 void SEIandBootstrap2TRLWE(TFHEpp::lvl1param::T* const out, const TFHEpp::lvl1param::T* const in,
-                           const lvl1param::T mu, const cudaStream_t st, const int gpuNum);
+                           const TFHEpp::lvl1param::T mu, const cudaStream_t st, const int gpuNum);
 
 void NandBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                    const TFHEpp::lvl0param::T* const in1, const cudaStream_t st,

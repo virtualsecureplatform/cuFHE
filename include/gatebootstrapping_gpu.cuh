@@ -1,8 +1,6 @@
 #pragma once
 
 
-#include <include/cufhe.h>
-
 #include <include/cufhe_gpu.cuh>
 #include <include/details/error_gpu.cuh>
 #include <include/ntt_gpu/ntt.cuh>
@@ -24,7 +22,7 @@ __device__ constexpr typename P::T offsetgen()
     for (int i = 1; i <= P::l; i++)
         offset +=
             P::Bg / 2 *
-            (1ULL << (numeric_limits<typename P::T>::digits - i * P::Bgbit));
+            (1ULL << (std::numeric_limits<typename P::T>::digits - i * P::Bgbit));
     return offset;
 }
 
@@ -59,34 +57,34 @@ __device__ inline void PolynomialMulByXaiMinusOneAndDecompositionTRLWE(
 {
     const uint32_t tid = ThisThreadRankInBlock();
     const uint32_t bdim = ThisBlockSize();
-    constexpr uint32_t decomp_mask = (1 << lvl1param::Bgbit) - 1;
-    constexpr int32_t decomp_half = 1 << (lvl1param::Bgbit - 1);
-    constexpr uint32_t decomp_offset = offsetgen<lvl1param>();
-    constexpr typename lvl1param::T roundoffset =
-        1ULL << (std::numeric_limits<typename lvl1param::T>::digits -
-                 lvl1param::l * lvl1param::Bgbit - 1);
+    constexpr uint32_t decomp_mask = (1 << TFHEpp::lvl1param::Bgbit) - 1;
+    constexpr int32_t decomp_half = 1 << (TFHEpp::lvl1param::Bgbit - 1);
+    constexpr uint32_t decomp_offset = offsetgen<TFHEpp::lvl1param>();
+    constexpr typename TFHEpp::lvl1param::T roundoffset =
+        1ULL << (std::numeric_limits<typename TFHEpp::lvl1param::T>::digits -
+                 TFHEpp::lvl1param::l * TFHEpp::lvl1param::Bgbit - 1);
 #pragma unroll
-    for (int i = tid; i < lvl1param::n; i += bdim) {
+    for (int i = tid; i < TFHEpp::lvl1param::n; i += bdim) {
 #pragma unroll
-        for (int j = 0; j < lvl1param::k+1; j++) {
+        for (int j = 0; j < TFHEpp::lvl1param::k+1; j++) {
             // PolynomialMulByXaiMinus
-            lvl1param::T temp =
-                trlwe[j * lvl1param::n + ((i - a_bar) & (lvl1param::n - 1))];
-            temp = ((i < (a_bar & (lvl1param::n - 1)) ^
-                     (a_bar >> lvl1param::nbit)))
+            TFHEpp::lvl1param::T temp =
+                trlwe[j * TFHEpp::lvl1param::n + ((i - a_bar) & (TFHEpp::lvl1param::n - 1))];
+            temp = ((i < (a_bar & (TFHEpp::lvl1param::n - 1)) ^
+                     (a_bar >> TFHEpp::lvl1param::nbit)))
                        ? -temp
                        : temp;
-            temp -= trlwe[j * lvl1param::n + i];
+            temp -= trlwe[j * TFHEpp::lvl1param::n + i];
             // decomp temp
             temp += decomp_offset + roundoffset;
 #pragma unroll
-            for (int digit = 0; digit < lvl1param::l; digit += 1)
-                dectrlwe[j * lvl1param::l * lvl1param::n +
-                         digit * lvl1param::n + i] =
-                    FFP(lvl1param::T(
+            for (int digit = 0; digit < TFHEpp::lvl1param::l; digit += 1)
+                dectrlwe[j * TFHEpp::lvl1param::l * TFHEpp::lvl1param::n +
+                         digit * TFHEpp::lvl1param::n + i] =
+                    FFP(TFHEpp::lvl1param::T(
                         ((temp >>
-                          (std::numeric_limits<typename lvl1param::T>::digits -
-                           (digit + 1) * lvl1param::Bgbit)) &
+                          (std::numeric_limits<typename TFHEpp::lvl1param::T>::digits -
+                           (digit + 1) * TFHEpp::lvl1param::Bgbit)) &
                          decomp_mask) -
                         decomp_half));
         }
@@ -189,10 +187,10 @@ __device__ inline void __BlindRotate__(typename P::targetP::T* const out,
     }
 }
 
-template <class P, int casign, int cbsign, typename lvl0param::T offset>
-__device__ inline void __BlindRotatePreAdd__(TFHEpp::lvl1param::T* const out,
-                                   const TFHEpp::lvl0param::T* const in0,
-                                   const TFHEpp::lvl0param::T* const in1,
+template <class P, int casign, int cbsign, typename P::domainP::T offset>
+__device__ inline void __BlindRotatePreAdd__(typename P::targetP::T* const out,
+                                   const typename P::domainP::T* const in0,
+                                   const typename P::domainP::T* const in1,
                                    const FFP* const bk,
                                    CuNTTHandler<> ntt)
 {

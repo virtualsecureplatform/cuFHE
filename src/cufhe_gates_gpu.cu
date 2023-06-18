@@ -20,7 +20,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <include/cufhe.h>
 #include <unistd.h>
 
 #include <array>

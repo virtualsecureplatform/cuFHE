@@ -360,8 +360,8 @@ __device__ inline void __HomGate__(typename iksP::targetP::T* const out,
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NandBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, -1, -1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
@@ -369,8 +369,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NandBootstrap__(
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NorBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, -1, -1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
@@ -378,8 +378,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NorBootstrap__(
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __XnorBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, -2, -2, -2 * lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
@@ -387,8 +387,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __XnorBootstrap__(
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, 1, 1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
@@ -396,8 +396,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndBootstrap__(
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, 1, 1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
@@ -405,8 +405,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrBootstrap__(
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __XorBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, 2, 2, 2 * lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
@@ -414,8 +414,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __XorBootstrap__(
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndNYBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, -1, 1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
@@ -423,8 +423,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndNYBootstrap__(
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndYNBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, 1, -1, -lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
@@ -432,8 +432,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __AndYNBootstrap__(
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrNYBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, -1, 1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
@@ -441,8 +441,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrNYBootstrap__(
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrYNBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-    const TFHEpp::lvl0param::T* const in1, FFP* bk, const TFHEpp::lvl0param::T* const ksk,
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+    const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, 1, -1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);

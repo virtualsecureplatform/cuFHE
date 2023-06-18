@@ -85,7 +85,7 @@ void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1,
                     sizeof(res.trlwehost), cudaMemcpyDeviceToHost, st.st());
 }
 
-void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,
+void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt<TFHEpp::lvl0param>& in,
                                          Stream st)
 {
     cudaSetDevice(st.device_id());
@@ -97,7 +97,7 @@ void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,
                     sizeof(out.trlwehost), cudaMemcpyDeviceToHost, st.st());
 }
 
-void gGateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt& in,
+void gGateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt<TFHEpp::lvl0param>& in,
                                           Stream st)
 {
     cudaSetDevice(st.device_id());
@@ -126,7 +126,7 @@ void gRefresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st)
                         st.st(), st.device_id());
 }
 
-void SampleExtractAndKeySwitch(Ctxt& out, const cuFHETRLWElvl1& in, Stream st)
+void SampleExtractAndKeySwitch(Ctxt<TFHEpp::lvl0param>& out, const cuFHETRLWElvl1& in, Stream st)
 {
     cudaSetDevice(st.device_id());
     cudaMemcpyAsync(in.trlwedevices[st.device_id()], in.trlwehost.data(),
@@ -136,7 +136,7 @@ void SampleExtractAndKeySwitch(Ctxt& out, const cuFHETRLWElvl1& in, Stream st)
     CtxtCopyD2H(out, st);
 }
 
-void gSampleExtractAndKeySwitch(Ctxt& out, const cuFHETRLWElvl1& in, Stream st)
+void gSampleExtractAndKeySwitch(Ctxt<TFHEpp::lvl0param>& out, const cuFHETRLWElvl1& in, Stream st)
 {
     cudaSetDevice(st.device_id());
     cudaMemcpyAsync(in.trlwedevices[st.device_id()], in.trlwehost.data(),

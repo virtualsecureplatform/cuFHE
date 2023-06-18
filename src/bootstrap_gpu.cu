@@ -629,6 +629,7 @@ void SEIandBootstrap2TRLWE(TFHEpp::lvl1param::T* const out, const TFHEpp::lvl1pa
     CuCheckError();
 }
 
+// template<class brP, class iksP>
 void NandBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                    const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
 {

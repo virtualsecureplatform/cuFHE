@@ -36,6 +36,7 @@ void CMUXNTTkernel(TFHEpp::lvl1param::T* const res, const FFP* const cs,
                    TFHEpp::lvl1param::T* const c1,
                    TFHEpp::lvl1param::T* const c0, cudaStream_t st,
                    const int gpuNum);
+
 void Bootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
                const TFHEpp::lvl1param::T mu, const cudaStream_t st, const int gpuNum);
 void BootstrapTLWE2TRLWE(TFHEpp::lvl1param::T* const out, const TFHEpp::lvl0param::T* const in,

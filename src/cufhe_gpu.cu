@@ -32,38 +32,6 @@ namespace cufhe {
 
 uint32_t cnt = 0;
 
-template <typename dT, typename hT>
-void ctxtInitialize(hT &host, std::vector<dT *> &devices)
-{
-    cudaHostRegister(host.data(), sizeof(host), cudaHostRegisterDefault);
-    devices.resize(_gpuNum);
-    for (int i = 0; i < _gpuNum; i++) {
-        cudaSetDevice(i);
-        cudaMalloc((void **)&devices[i], sizeof(host));
-    }
-}
-
-template <typename dT, typename hT>
-void ctxtDelete(hT &host, std::vector<dT *> &devices)
-{
-    cudaHostUnregister(host.data());
-    for (int i = 0; i < _gpuNum; i++) {
-        cudaSetDevice(i);
-        cudaFree(devices[i]);
-    }
-}
-
-Ctxt::Ctxt()
-{
-    ctxtInitialize<TFHEpp::lvl0param::T, TFHEpp::TLWE<TFHEpp::lvl0param>>(
-        tlwehost, tlwedevices);
-}
-
-Ctxt::~Ctxt()
-{
-    ctxtDelete<TFHEpp::lvl0param::T, TFHEpp::TLWE<TFHEpp::lvl0param>>(
-        tlwehost, tlwedevices);
-}
 
 cuFHETRLWElvl1::cuFHETRLWElvl1()
 {

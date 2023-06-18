@@ -39,7 +39,7 @@ void runAndVerify(const char* name, Launcher&& launcher, Verifier&& verifier)
 
 void testMux(TFHEpp::SecretKey& sk)
 {
-    cufhe::Ctxt ca, cb, cc, cres[N][M];
+    cufhe::Ctxt<TFHEpp::lvl0param> ca, cb, cc, cres[N][M];
     bool pa, pb, pc;
     pa = true;
     pb = false;
@@ -70,7 +70,7 @@ void testMux(TFHEpp::SecretKey& sk)
 
 void testNand(TFHEpp::SecretKey& sk)
 {
-    cufhe::Ctxt ca, cb, cres[N][M];
+    cufhe::Ctxt<TFHEpp::lvl0param> ca, cb, cres[N][M];
     bool pa, pb;
     pa = true;
     pb = false;

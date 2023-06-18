@@ -26,9 +26,9 @@ int main()
     cout << "n:" << sk->params.lvl0.n << endl;
 
     vector<uint8_t> pt(kNumTests);
-    vector<Ctxt> ct(kNumTests);
+    vector<Ctxt<TFHEpp::lvl0param>> ct(kNumTests);
     vector<cuFHETRLWElvl1> trlweLv1(kNumTests);
-    vector<Ctxt> ctTemp(kNumTests);
+    vector<Ctxt<TFHEpp::lvl0param>> ctTemp(kNumTests);
     vector<cuFHETRLWElvl1> trlweLv1Temp(kNumTests);
 
     random_device seed_gen;

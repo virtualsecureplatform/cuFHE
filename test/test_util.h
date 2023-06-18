@@ -7,7 +7,7 @@ using namespace std;
 namespace cufhe{
 template <class Func, class Check>
 void Test(string type, Func func, Check check, vector<uint8_t>& pt,
-          vector<Ctxt>& ct, Stream* st, int kNumTests, int kNumSMs,
+          vector<Ctxt<TFHEpp::lvl0param>>& ct, Stream* st, int kNumTests, int kNumSMs,
           TFHEpp::SecretKey& sk)
 {
     cout << "------ Test " << type << " Gate ------" << endl;
@@ -35,21 +35,21 @@ void Test(string type, Func func, Check check, vector<uint8_t>& pt,
 
 
     for (int i = 0; i < kNumTests; i++) {
-        if constexpr (std::is_invocable_v<Func, Ctxt&>) {
+        if constexpr (std::is_invocable_v<Func, Ctxt<TFHEpp::lvl0param>&>) {
             func(ct[i]);
             check(pt[i]);
         }
-        else if constexpr (std::is_invocable_v<Func, Ctxt&, Ctxt&, Stream>) {
+        else if constexpr (std::is_invocable_v<Func, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&, Stream>) {
             func(ct[i], ct[i + kNumTests], st[i % kNumSMs]);
             check(pt[i], pt[i + kNumTests]);
         }
-        else if constexpr (std::is_invocable_v<Func, Ctxt&, Ctxt&, Ctxt&,
+        else if constexpr (std::is_invocable_v<Func, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&,
                                                Stream>) {
             func(ct[i], ct[i + kNumTests], ct[i + kNumTests * 2],
                  st[i % kNumSMs]);
             check(pt[i], pt[i + kNumTests], pt[i + kNumTests * 2]);
         }
-        else if constexpr (std::is_invocable_v<Func, Ctxt&, Ctxt&, Ctxt&, Ctxt&,
+        else if constexpr (std::is_invocable_v<Func, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&,
                                                Stream>) {
             func(ct[i], ct[i + kNumTests], ct[i + kNumTests * 2],
                  ct[i + kNumTests * 3], st[i % kNumSMs]);

@@ -51,7 +51,7 @@ int main()
 
     // MUX Need 3 input
     vector<uint8_t> pt(4 * kNumTests);
-    vector<Ctxt> ct(4 * kNumTests);
+    vector<Ctxt<TFHEpp::lvl0param>> ct(4 * kNumTests);
     Synchronize();
     bool correct;
 

@@ -26,6 +26,7 @@
 
 #include "cufhe_gpu.cuh"
 #include "details/allocator_gpu.cuh"
+#include <cuda/std/array>
 
 namespace cufhe {
 void InitializeNTThandlers(const int gpuNum);

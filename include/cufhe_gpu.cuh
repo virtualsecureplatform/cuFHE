@@ -111,13 +111,13 @@ template<class P>
 struct Ctxt {
     Ctxt()
     {
-        ctxtInitialize<TFHEpp::lvl0param::T, TFHEpp::TLWE<TFHEpp::lvl0param>>(
+        ctxtInitialize<typename P::T, TFHEpp::TLWE<P>>(
             tlwehost, tlwedevices);
     }
 
     ~Ctxt()
     {
-        ctxtDelete<TFHEpp::lvl0param::T, TFHEpp::TLWE<TFHEpp::lvl0param>>(
+        ctxtDelete<typename P::T, TFHEpp::TLWE<P>>(
             tlwehost, tlwedevices);
     }
     Ctxt(const Ctxt& that) = delete;

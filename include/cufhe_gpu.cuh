@@ -221,8 +221,22 @@ void Mux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp
 void NMux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp::lvl0param>& in1, Ctxt<TFHEpp::lvl0param>& in0, Stream st);
 
 bool StreamQuery(Stream st);
-void CtxtCopyH2D(Ctxt<TFHEpp::lvl0param>& c, Stream st);
-void CtxtCopyD2H(Ctxt<TFHEpp::lvl0param>& c, Stream st);
+
+template<class P>
+inline void CtxtCopyH2D(Ctxt<P>& c, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    cudaMemcpyAsync(c.tlwedevices[st.device_id()], c.tlwehost.data(),
+                    sizeof(c.tlwehost), cudaMemcpyHostToDevice, st.st());
+}
+
+template<class P>
+inline void CtxtCopyD2H(Ctxt<P>& c, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    cudaMemcpyAsync(c.tlwehost.data(), c.tlwedevices[st.device_id()],
+                    sizeof(c.tlwehost), cudaMemcpyDeviceToHost, st.st());
+}
 
 void gSampleExtractAndKeySwitch(Ctxt<TFHEpp::lvl0param>& out, const cuFHETRLWElvl1& in, Stream st);
 void gGateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt<TFHEpp::lvl0param>& in,

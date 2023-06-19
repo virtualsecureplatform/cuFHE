@@ -447,8 +447,9 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrYNBootstrap__(
     __HomGate__<brP, μ, iksP, 1, -1, lvl0param::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
+template<class P>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __CopyBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in)
+    typename P::T* const out, const typename P::T* const in)
 {
     const uint32_t tid = ThisThreadRankInBlock();
     out[tid] = in[tid];
@@ -456,8 +457,9 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __CopyBootstrap__(
     __threadfence();
 }
 
+template<class P>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NotBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in)
+    typename P::T* const out, const typename P::T* const in)
 {
     const uint32_t tid = ThisThreadRankInBlock();
     out[tid] = -in[tid];
@@ -773,14 +775,14 @@ void XnorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* 
 void CopyBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
                    const cudaStream_t st, const int gpuNum)
 {
-    __CopyBootstrap__<<<1, lvl0param::n + 1, 0, st>>>(out, in);
+    __CopyBootstrap__<TFHEpp::lvl0param><<<1, lvl0param::n + 1, 0, st>>>(out, in);
     CuCheckError();
 }
 
 void NotBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
                   const cudaStream_t st, const int gpuNum)
 {
-    __NotBootstrap__<<<1, lvl0param::n + 1, 0, st>>>(out, in);
+    __NotBootstrap__<TFHEpp::lvl0param><<<1, TFHEpp::lvl0param::n + 1, 0, st>>>(out, in);
     CuCheckError();
 }
 

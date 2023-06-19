@@ -26,7 +26,6 @@
 
 #include "cufhe_gpu.cuh"
 #include "details/allocator_gpu.cuh"
-#include <cuda/std/array>
 
 namespace cufhe {
 void InitializeNTThandlers(const int gpuNum);
@@ -46,9 +45,9 @@ void BootstrapTLWE2TRLWE(TFHEpp::lvl1param::T* const out, const TFHEpp::lvl0para
 void SEIandBootstrap2TRLWE(TFHEpp::lvl1param::T* const out, const TFHEpp::lvl1param::T* const in,
                            const TFHEpp::lvl1param::T mu, const cudaStream_t st, const int gpuNum);
 
-void NandBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                   const TFHEpp::lvl0param::T* const in1, const cudaStream_t st,
-                   const int gpuNum);
+template<class brP, typename brP::targetP::T μ, class iksP>
+void NandBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum);
 void OrBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
                    const TFHEpp::lvl0param::T* const in1, const cudaStream_t st,
                    const int gpuNum);

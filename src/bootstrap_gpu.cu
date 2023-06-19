@@ -740,12 +740,10 @@ template void NandBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, c
 INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
 #undef INST
 
-void OrBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                 const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
+template<class brP, typename brP::targetP::T μ, class iksP>
+void OrBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using brP = TFHEpp::lvl01param;
-    using iksP = TFHEpp::lvl10param;
-
     cudaFuncSetAttribute(__OrBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
@@ -754,12 +752,16 @@ void OrBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* co
         *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void OrBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0, \
+                                        const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
-void OrYNBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                   const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
+template<class brP, typename brP::targetP::T μ, class iksP>
+void OrYNBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using brP = TFHEpp::lvl01param;
-    using iksP = TFHEpp::lvl10param;
     cudaFuncSetAttribute(__OrYNBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
@@ -768,12 +770,16 @@ void OrYNBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* 
         *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void OrYNBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0, \
+                                        const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
-void OrNYBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                   const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
+template<class brP, typename brP::targetP::T μ, class iksP>
+void OrNYBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using brP = TFHEpp::lvl01param;
-    using iksP = TFHEpp::lvl10param;
     cudaFuncSetAttribute(__OrNYBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
@@ -782,12 +788,16 @@ void OrNYBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* 
         *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void OrNYBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0, \
+                                        const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
-void AndBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                  const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
+template<class brP, typename brP::targetP::T μ, class iksP>
+void AndBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using brP = TFHEpp::lvl01param;
-    using iksP = TFHEpp::lvl10param;
     cudaFuncSetAttribute(__AndBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
@@ -796,12 +806,16 @@ void AndBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* c
         *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void AndBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0, \
+                                        const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
-void AndYNBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                   const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
+template<class brP, typename brP::targetP::T μ, class iksP>
+void AndYNBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using brP = TFHEpp::lvl01param;
-    using iksP = TFHEpp::lvl10param;
     cudaFuncSetAttribute(__AndYNBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
@@ -810,12 +824,16 @@ void AndYNBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T*
         *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void AndYNBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0, \
+                                        const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
-void AndNYBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                   const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
+template<class brP, typename brP::targetP::T μ, class iksP>
+void AndNYBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using brP = TFHEpp::lvl01param;
-    using iksP = TFHEpp::lvl10param;
     cudaFuncSetAttribute(__AndNYBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
@@ -824,12 +842,16 @@ void AndNYBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T*
         *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void AndNYBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0, \
+                                        const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
-void NorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                  const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
+template<class brP, typename brP::targetP::T μ, class iksP>
+void NorBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using brP = TFHEpp::lvl01param;
-    using iksP = TFHEpp::lvl10param;
     cudaFuncSetAttribute(__NorBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
@@ -838,12 +860,16 @@ void NorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* c
         *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void NorBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0, \
+                                        const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
-void XorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                  const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
+template<class brP, typename brP::targetP::T μ, class iksP>
+void XorBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using brP = TFHEpp::lvl01param;
-    using iksP = TFHEpp::lvl10param;
     cudaFuncSetAttribute(__XorBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
@@ -852,12 +878,16 @@ void XorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* c
         *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void XorBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0, \
+                                        const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
-void XnorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in0,
-                   const TFHEpp::lvl0param::T* const in1, const cudaStream_t st, const int gpuNum)
+template<class brP, typename brP::targetP::T μ, class iksP>
+void XnorBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
+                   const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
-    using brP = TFHEpp::lvl01param;
-    using iksP = TFHEpp::lvl10param;
     cudaFuncSetAttribute(__XnorBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
@@ -866,6 +896,11 @@ void XnorBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* 
         *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void XnorBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0, \
+                                        const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
 void CopyBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
                    const cudaStream_t st, const int gpuNum)

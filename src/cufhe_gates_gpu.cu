@@ -361,7 +361,7 @@ void Mux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp
     CtxtCopyH2D<TFHEpp::lvl0param>(inc, st);
     CtxtCopyH2D<TFHEpp::lvl0param>(in1, st);
     CtxtCopyH2D<TFHEpp::lvl0param>(in0, st);
-    MuxBootstrap(out.tlwedevices[st.device_id()],
+    MuxBootstrap<TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param>(out.tlwedevices[st.device_id()],
                  inc.tlwedevices[st.device_id()],
                  in1.tlwedevices[st.device_id()],
                  in0.tlwedevices[st.device_id()], st.st(), st.device_id());
@@ -371,7 +371,7 @@ void Mux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp
 void gMux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp::lvl0param>& in1, Ctxt<TFHEpp::lvl0param>& in0, Stream st)
 {
     cudaSetDevice(st.device_id());
-    MuxBootstrap(out.tlwedevices[st.device_id()],
+    MuxBootstrap<TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param>(out.tlwedevices[st.device_id()],
                  inc.tlwedevices[st.device_id()],
                  in1.tlwedevices[st.device_id()],
                  in0.tlwedevices[st.device_id()], st.st(), st.device_id());
@@ -383,7 +383,7 @@ void NMux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEp
     CtxtCopyH2D<TFHEpp::lvl0param>(inc, st);
     CtxtCopyH2D<TFHEpp::lvl0param>(in1, st);
     CtxtCopyH2D<TFHEpp::lvl0param>(in0, st);
-    NMuxBootstrap(out.tlwedevices[st.device_id()],
+    NMuxBootstrap<TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param>(out.tlwedevices[st.device_id()],
                   inc.tlwedevices[st.device_id()],
                   in1.tlwedevices[st.device_id()],
                   in0.tlwedevices[st.device_id()], st.st(), st.device_id());
@@ -393,7 +393,7 @@ void NMux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEp
 void gNMux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp::lvl0param>& in1, Ctxt<TFHEpp::lvl0param>& in0, Stream st)
 {
     cudaSetDevice(st.device_id());
-    NMuxBootstrap(out.tlwedevices[st.device_id()],
+    NMuxBootstrap<TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param>(out.tlwedevices[st.device_id()],
                   inc.tlwedevices[st.device_id()],
                   in1.tlwedevices[st.device_id()],
                   in0.tlwedevices[st.device_id()], st.st(), st.device_id());

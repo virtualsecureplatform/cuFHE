@@ -79,10 +79,12 @@ void CopyBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* 
                    const cudaStream_t st, const int gpuNum);
 void NotBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
                   const cudaStream_t st, const int gpuNum);
-void MuxBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const inc,
-                  const TFHEpp::lvl0param::T* const in1, const TFHEpp::lvl0param::T* const in0,
+template<class brP, typename brP::targetP::T μ, class iksP>
+void MuxBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
+                  const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0,
                   const cudaStream_t st, const int gpuNum);
-void NMuxBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const inc,
-                  const TFHEpp::lvl0param::T* const in1, const TFHEpp::lvl0param::T* const in0,
+template<class brP, typename brP::targetP::T μ, class iksP>
+void NMuxBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
+                  const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0,
                   const cudaStream_t st, const int gpuNum);
 }  // namespace cufhe

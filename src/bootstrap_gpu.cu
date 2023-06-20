@@ -560,115 +560,116 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NotBootstrap__(
 }
 
 // Mux(inc,in1,in0) = inc?in1:in0 = inc&in1 + (!inc)&in0
+template<class brP, typename brP::targetP::T μ, class  iksP>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __MuxBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const inc,
-    const TFHEpp::lvl0param::T* const in1, const TFHEpp::lvl0param::T* const in0, const FFP* const bk,
-    const TFHEpp::lvl0param::T* const ksk,  const CuNTTHandler<> ntt)
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
+    const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, const FFP* const bk,
+    const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
 {
     // To use over 48 KiB shared Memory, the dynamic allocation is required.
     extern __shared__ FFP sh[];
     FFP* sh_acc_ntt = &sh[0];
     // Use Last section to hold tlwe. This may to make these data in serial
-    TFHEpp::lvl1param::T* tlwe1 =
-        (TFHEpp::lvl1param::T*)&sh[((lvl1param::k+1) * lvl1param::l + 1) * lvl1param::n];
-    TFHEpp::lvl1param::T* tlwe0 =
-        (TFHEpp::lvl1param::T*)&sh[((lvl1param::k+1) * lvl1param::l + 2) * lvl1param::n];
+    typename brP::targetP::T* tlwe1 =
+        (typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 1) * brP::targetP::n];
+     typename brP::targetP::T* tlwe0 =
+        ( typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 2) * brP::targetP::n];
     // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
     register uint32_t bar =
-        2 * lvl1param::n -
-        modSwitchFromTorus<lvl1param>(-lvl0param::μ + inc[lvl0param::n] +
-                                      in1[lvl0param::n]);
-    RotatedTestVector<lvl1param>(tlwe1, bar, lvl1param::μ);
+        2 * brP::targetP::n -
+        modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ + inc[brP::domainP::n] +
+                                      in1[brP::domainP::n]);
+    RotatedTestVector<typename brP::targetP>(tlwe1, bar, brP::domainP::μ);
 
     // accumulate
-    for (int i = 0; i < lvl0param::n; i++) {  // lvl1param::n iterations
-        bar = modSwitchFromTorus<lvl1param>(0 + inc[i] + in1[i]);
-        Accumulate<lvl01param>(tlwe1, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
+    for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
+        bar = modSwitchFromTorus<typename brP::targetP>(0 + inc[i] + in1[i]);
+        Accumulate<brP>(tlwe1, sh_acc_ntt, bar,
+                   bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
     }
 
-    bar = 2 * lvl1param::n -
-          modSwitchFromTorus<lvl1param>(-lvl0param::μ - inc[lvl0param::n] +
-                                        in0[lvl0param::n]);
+    bar = 2 * brP::targetP::n -
+          modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ - inc[brP::domainP::n] +
+                                        in0[brP::domainP::n]);
 
-    RotatedTestVector<lvl1param>(tlwe0, bar, lvl1param::μ);
+    RotatedTestVector<typename brP::targetP>(tlwe0, bar, μ);
 
-    for (int i = 0; i < lvl0param::n; i++) {  // lvl1param::n iterations
-        bar = modSwitchFromTorus<lvl1param>(0 - inc[i] + in0[i]);
-        Accumulate<lvl01param>(tlwe0, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
+    for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
+        bar = modSwitchFromTorus<brP::targetP>(0 - inc[i] + in0[i]);
+        Accumulate<brP>(tlwe0, sh_acc_ntt, bar,
+                   bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
     }
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
     volatile const uint32_t bdim = ThisBlockSize();
 #pragma unroll
-    for (int i = tid; i <= lvl1param::n; i += bdim) {
+    for (int i = tid; i <= brP::targetP::n; i += bdim) {
         tlwe1[i] += tlwe0[i];
-        if (i == lvl1param::n) {
-            tlwe1[lvl1param::n] += lvl1param::μ;
+        if (i == brP::targetP::n) {
+            tlwe1[brP::targetP::n] += μ;
         }
     }
 
     __syncthreads();
 
-    KeySwitch<lvl10param>(out, tlwe1, ksk);
+    KeySwitch<iksP>(out, tlwe1, ksk);
     __threadfence();
 }
 
 // NMux(inc,in1,in0) = !(inc?in1:in0) = !(inc&in1 + (!inc)&in0)
+template<class brP, typename brP::targetP::T μ, class  iksP>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NMuxBootstrap__(
-    TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const inc,
-    const TFHEpp::lvl0param::T* const in1, const TFHEpp::lvl0param::T* const in0, const FFP* const bk,
-    const TFHEpp::lvl0param::T* const ksk,  const CuNTTHandler<> ntt)
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
+    const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, const FFP* const bk,
+    const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
 {
     // To use over 48 KiB shared Memory, the dynamic allocation is required.
     extern __shared__ FFP sh[];
     FFP* sh_acc_ntt = &sh[0];
     // Use Last section to hold tlwe. This may to make these data in serial
-    TFHEpp::lvl1param::T* tlwe1 =
-        (TFHEpp::lvl1param::T*)&sh[(2 * lvl1param::l + 1) * lvl1param::n];
-    TFHEpp::lvl1param::T* tlwe0 =
-        (TFHEpp::lvl1param::T*)&sh[(2 * lvl1param::l + 2) * lvl1param::n];
-
+    typename brP::targetP::T* tlwe1 =
+        (typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 1) * brP::targetP::n];
+     typename brP::targetP::T* tlwe0 =
+        ( typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 2) * brP::targetP::n];
     // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
     register uint32_t bar =
-        2 * lvl1param::n -
-        modSwitchFromTorus<lvl1param>(-lvl0param::μ + inc[lvl0param::n] +
-                                      in1[lvl0param::n]);
-    RotatedTestVector<lvl1param>(tlwe1, bar, lvl1param::μ);
+        2 * brP::targetP::n -
+        modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ + inc[brP::domainP::n] +
+                                      in1[brP::domainP::n]);
+    RotatedTestVector<typename brP::targetP>(tlwe1, bar, brP::domainP::μ);
 
     // accumulate
-    for (int i = 0; i < lvl0param::n; i++) {  // lvl1param::n iterations
-        bar = modSwitchFromTorus<lvl1param>(0 + inc[i] + in1[i]);
-        Accumulate<lvl01param>(tlwe1, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
+    for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
+        bar = modSwitchFromTorus<typename brP::targetP>(0 + inc[i] + in1[i]);
+        Accumulate<brP>(tlwe1, sh_acc_ntt, bar,
+                   bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
     }
 
-    bar = 2 * lvl1param::n -
-          modSwitchFromTorus<lvl1param>(-lvl0param::μ - inc[lvl0param::n] +
-                                        in0[lvl0param::n]);
+    bar = 2 * brP::targetP::n -
+          modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ - inc[brP::domainP::n] +
+                                        in0[brP::domainP::n]);
 
-    RotatedTestVector<lvl1param>(tlwe0, bar, lvl1param::μ);
+    RotatedTestVector<typename brP::targetP>(tlwe0, bar, μ);
 
-    for (int i = 0; i < lvl0param::n; i++) {  // lvl1param::n iterations
-        bar = modSwitchFromTorus<lvl1param>(0 - inc[i] + in0[i]);
-        Accumulate<lvl01param>(tlwe0, sh_acc_ntt, bar,
-                   bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
+    for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
+        bar = modSwitchFromTorus<brP::targetP>(0 - inc[i] + in0[i]);
+        Accumulate<brP>(tlwe0, sh_acc_ntt, bar,
+                   bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
     }
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
     volatile const uint32_t bdim = ThisBlockSize();
 #pragma unroll
-    for (int i = tid; i <= lvl1param::n; i += bdim) {
+    for (int i = tid; i <= brP::targetP::n; i += bdim) {
         tlwe1[i] = -tlwe1[i] - tlwe0[i];
-        if (i == lvl1param::n) {
-            tlwe1[lvl1param::n] -= lvl1param::μ;
+        if (i == brP::targetP::n) {
+            tlwe1[brP::targetP::n] -= μ;
         }
     }
 
     __syncthreads();
 
-    KeySwitch<lvl10param>(out, tlwe1, ksk);
+    KeySwitch<iksP>(out, tlwe1, ksk);
     __threadfence();
 }
 
@@ -916,31 +917,46 @@ void NotBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* c
     CuCheckError();
 }
 
-void MuxBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const inc,
-                  const TFHEpp::lvl0param::T* const in1, const TFHEpp::lvl0param::T* const in0,
+template<class brP, typename brP::targetP::T μ, class iksP>
+void MuxBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
+                  const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0,
                   const cudaStream_t st, const int gpuNum)
 {
-    cudaFuncSetAttribute(__MuxBootstrap__,
+    cudaFuncSetAttribute(__MuxBootstrap__<brP,μ,iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         ((lvl1param::k+1) * lvl1param::l + 3) * lvl1param::n * sizeof(FFP));
-    __MuxBootstrap__<<<1, NUM_THREAD4HOMGATE,
-                       ((lvl1param::k+1) * lvl1param::l + 3) * lvl1param::n * sizeof(FFP),
+                         ((brP::targetP::k+1) * brP::targetP::l + 3) * brP::targetP::n * sizeof(FFP));
+    __MuxBootstrap__<brP,μ,iksP><<<1, NUM_THREAD4HOMGATE,
+                       ((brP::targetP::k+1) * brP::targetP::l + 3) * brP::targetP::n * sizeof(FFP),
                        st>>>(out, inc, in1, in0, bk_ntts[gpuNum],
                              ksk_devs[gpuNum], *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void MuxBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc, \
+                                       const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, \
+                                       const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
 
-void NMuxBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const inc,
-                  const TFHEpp::lvl0param::T* const in1, const TFHEpp::lvl0param::T* const in0,
+template<class brP, typename brP::targetP::T μ, class iksP>
+void NMuxBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
+                  const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0,
                   const cudaStream_t st, const int gpuNum)
 {
-    cudaFuncSetAttribute(__NMuxBootstrap__,
+    cudaFuncSetAttribute(__NMuxBootstrap__<brP,μ,iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         ((lvl1param::k+1) * lvl1param::l + 3) * lvl1param::n * sizeof(FFP));
-    __NMuxBootstrap__<<<1, NUM_THREAD4HOMGATE,
-                        ((lvl1param::k+1) * lvl1param::l + 3) * lvl1param::n * sizeof(FFP),
-                        st>>>(out, inc, in1, in0, bk_ntts[gpuNum],
-                              ksk_devs[gpuNum], *ntt_handlers[gpuNum]);
+                         ((brP::targetP::k+1) * brP::targetP::l + 3) * brP::targetP::n * sizeof(FFP));
+    __NMuxBootstrap__<brP,μ,iksP><<<1, NUM_THREAD4HOMGATE,
+                       ((brP::targetP::k+1) * brP::targetP::l + 3) * brP::targetP::n * sizeof(FFP),
+                       st>>>(out, inc, in1, in0, bk_ntts[gpuNum],
+                             ksk_devs[gpuNum], *ntt_handlers[gpuNum]);
     CuCheckError();
 }
+#define INST(brP, μ, iksP)                                                \
+template void NMuxBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc, \
+                                       const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, \
+                                       const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
+#undef INST
+
 }  // namespace cufhe

@@ -324,7 +324,7 @@ void Not(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl0param>(in, st);
-    NotBootstrap(out.tlwedevices[st.device_id()],
+    NotBootstrap<TFHEpp::lvl0param>(out.tlwedevices[st.device_id()],
                  in.tlwedevices[st.device_id()], st.st(), st.device_id());
     CtxtCopyD2H<TFHEpp::lvl0param>(out, st);
 }
@@ -332,7 +332,7 @@ void Not(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st)
 void gNot(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st)
 {
     cudaSetDevice(st.device_id());
-    NotBootstrap(out.tlwedevices[st.device_id()],
+    NotBootstrap<TFHEpp::lvl0param>(out.tlwedevices[st.device_id()],
                  in.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
@@ -340,7 +340,7 @@ void Copy(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl0param>(in, st);
-    CopyBootstrap(out.tlwedevices[st.device_id()],
+    CopyBootstrap<TFHEpp::lvl0param>(out.tlwedevices[st.device_id()],
                   in.tlwedevices[st.device_id()], st.st(), st.device_id());
     CtxtCopyD2H<TFHEpp::lvl0param>(out, st);
 }
@@ -348,7 +348,7 @@ void Copy(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st)
 void gCopy(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st)
 {
     cudaSetDevice(st.device_id());
-    CopyBootstrap(out.tlwedevices[st.device_id()],
+    CopyBootstrap<TFHEpp::lvl0param>(out.tlwedevices[st.device_id()],
                   in.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 

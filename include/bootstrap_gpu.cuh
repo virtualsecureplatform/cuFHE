@@ -75,9 +75,11 @@ void XorBootstrap(typename iksP::targetP::T* const out, const typename brP::doma
 template<class brP, typename brP::targetP::T μ, class iksP>
 void XnorBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
                    const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum);
-void CopyBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
+template<class P>
+void CopyBootstrap(typename P::T* const out, const typename P::T* const in,
                    const cudaStream_t st, const int gpuNum);
-void NotBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
+template<class P>
+void NotBootstrap(typename P::T* const out, const typename P::T* const in,
                   const cudaStream_t st, const int gpuNum);
 template<class brP, typename brP::targetP::T μ, class iksP>
 void MuxBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,

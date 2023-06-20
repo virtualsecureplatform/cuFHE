@@ -903,19 +903,33 @@ template void XnorBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, c
 INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
 #undef INST
 
-void CopyBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
+template<class P>
+void CopyBootstrap(typename P::T* const out, const typename P::T* const in,
                    const cudaStream_t st, const int gpuNum)
 {
-    __CopyBootstrap__<TFHEpp::lvl0param><<<1, lvl0param::n + 1, 0, st>>>(out, in);
+    __CopyBootstrap__<P><<<1, P::n + 1, 0, st>>>(out, in);
     CuCheckError();
 }
+#define INST(P) \
+template void CopyBootstrap<P>(typename P::T* const out, const typename P::T* const in, \
+                   const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl0param);
+INST(TFHEpp::lvl1param);
+#undef INST
 
-void NotBootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
+template<class P>
+void NotBootstrap(typename P::T* const out, const typename P::T* const in,
                   const cudaStream_t st, const int gpuNum)
 {
-    __NotBootstrap__<TFHEpp::lvl0param><<<1, TFHEpp::lvl0param::n + 1, 0, st>>>(out, in);
+    __NotBootstrap__<P><<<1, P::n + 1, 0, st>>>(out, in);
     CuCheckError();
 }
+#define INST(P) \
+template void NotBootstrap<P>(typename P::T* const out, const typename P::T* const in, \
+                   const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl0param);
+INST(TFHEpp::lvl1param);
+#undef INST
 
 template<class brP, typename brP::targetP::T μ, class iksP>
 void MuxBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,

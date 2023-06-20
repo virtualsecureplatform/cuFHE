@@ -22,7 +22,7 @@ __device__ inline void KeySwitch(typename P::targetP::T* const lwe,
     const uint32_t bdim = ThisBlockSize();
     for (int i = tid; i <= P::targetP::k*P::targetP::n; i += bdim) {
         typename P::targetP::T res = 0;
-        if (i == P::targetP::n) res = tlwe[P::domainP::n];
+        if (i == P::targetP::k*P::targetP::n) res = tlwe[P::domainP::k*P::domainP::n];
         for (int j = 0; j < P::domainP::k*P::domainP::n; j++) {
             typename P::domainP::T tmp;
             if (j == 0)
@@ -66,7 +66,7 @@ __device__ inline void IdentityKeySwitchPreAdd(typename P::targetP::T* const lwe
         if (i == P::targetP::k*P::targetP::n) res = casign*ina[P::domainP::k*P::domainP::n]+ cbsign*inb[P::domainP::k*P::domainP::n] + offset;
         for (int j = 0; j < P::domainP::k*P::domainP::n; j++) {
             typename P::domainP::T tmp;
-            tmp = casign*ina[j]+ cbsign*inb[j] + decomp_offset;
+            tmp = casign*ina[j]+ cbsign*inb[j] + 0 + decomp_offset;
             for (int k = 0; k < P::t; k++) {
                 typename P::domainP::T val =
                     (tmp >>

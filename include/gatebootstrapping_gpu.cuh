@@ -27,7 +27,7 @@ __device__ constexpr typename P::T offsetgen()
 }
 
 template <class P>
-__device__ inline void RotatedTestVector(TFHEpp::lvl1param::T* tlwe,
+__device__ inline void RotatedTestVector(typename P::T* tlwe,
                                          const int32_t bar,
                                          const typename P::T μ)
 {
@@ -202,13 +202,13 @@ __device__ inline void __BlindRotatePreAdd__(typename P::targetP::T* const out,
     {
         const uint32_t bar =
             2 * P::targetP::n -
-            modSwitchFromTorus<P::targetP>(offset + casign * in0[P::domainP::k*P::domainP::n] +
+            modSwitchFromTorus<typename P::targetP>(offset + casign * in0[P::domainP::k*P::domainP::n] +
                                           cbsign * in1[P::domainP::k*P::domainP::n]);
-        RotatedTestVector<P::targetP>(out, bar, P::targetP::μ);
+        RotatedTestVector<typename P::targetP>(out, bar, P::targetP::μ);
     }
 
     // accumulate
-    for (int i = 0; i < P::domainP::n; i++) {  // lvl0param::n iterations
+    for (int i = 0; i < P::domainP::k*P::domainP::n; i++) {  // lvl0param::n iterations
         const uint32_t bar = modSwitchFromTorus<P::targetP>(0 + casign * in0[i] +
                                                            cbsign * in1[i]);
         Accumulate<P>(out, sh_acc_ntt, bar,

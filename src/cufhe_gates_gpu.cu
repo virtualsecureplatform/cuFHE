@@ -402,7 +402,8 @@ void gNMux<TFHEpp::lvl0param>(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0par
 }
 
 // lvl1 ver.
-void Nand(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void Nand<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -413,7 +414,8 @@ void Nand(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEp
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gNand(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gNand<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     NandBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -421,7 +423,8 @@ void gNand(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHE
                   in1.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
-void Or(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void Or<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -432,7 +435,8 @@ void Or(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp:
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gOr(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gOr<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     OrBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -440,7 +444,8 @@ void gOr(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp
                 in1.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
-void OrYN(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void OrYN<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -451,7 +456,8 @@ void OrYN(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEp
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gOrYN(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gOrYN<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     OrYNBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -459,7 +465,8 @@ void gOrYN(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHE
                   in1.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
-void OrNY(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void OrNY<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -470,7 +477,8 @@ void OrNY(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEp
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gOrNY(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gOrNY<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     OrNYBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -478,7 +486,8 @@ void gOrNY(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHE
                   in1.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
-void And(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void And<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -489,7 +498,8 @@ void And(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gAnd(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gAnd<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     AndBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -497,7 +507,8 @@ void gAnd(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEp
                  in1.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
-void AndYN(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void AndYN<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -508,7 +519,8 @@ void AndYN(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHE
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gAndYN(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gAndYN<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     AndYNBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -516,7 +528,8 @@ void gAndYN(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFH
                    in1.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
-void AndNY(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void AndNY<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -527,7 +540,8 @@ void AndNY(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHE
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gAndNY(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gAndNY<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     AndNYBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -535,7 +549,8 @@ void gAndNY(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFH
                    in1.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
-void Nor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void Nor<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -546,7 +561,8 @@ void Nor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gNor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gNor<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     NorBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -554,7 +570,8 @@ void gNor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEp
                  in1.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
-void Xor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void Xor<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -565,7 +582,8 @@ void Xor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gXor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gXor<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     XorBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -573,7 +591,8 @@ void gXor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEp
                  in1.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
-void Xnor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void Xnor<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(in0, st);
@@ -584,7 +603,8 @@ void Xnor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEp
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gXnor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
+template<>
+void gXnor<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHEpp::lvl1param>& in1, Stream st)
 {
     cudaSetDevice(st.device_id());
     XnorBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -593,7 +613,8 @@ void gXnor(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& in0, Ctxt<TFHE
 }
 
 // Mux(inc,in1,in0) = inc?in1:in0 = inc&in1 + (!inc)&in0
-void Mux(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& inc, Ctxt<TFHEpp::lvl1param>& in1, Ctxt<TFHEpp::lvl1param>& in0, Stream st)
+template<>
+void Mux<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& inc, Ctxt<TFHEpp::lvl1param>& in1, Ctxt<TFHEpp::lvl1param>& in0, Stream st)
 {
     cudaSetDevice(st.device_id());
     CtxtCopyH2D<TFHEpp::lvl1param>(inc, st);
@@ -606,7 +627,8 @@ void Mux(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& inc, Ctxt<TFHEpp
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
-void gMux(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& inc, Ctxt<TFHEpp::lvl1param>& in1, Ctxt<TFHEpp::lvl1param>& in0, Stream st)
+template<>
+void gMux<TFHEpp::lvl1param>(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& inc, Ctxt<TFHEpp::lvl1param>& in1, Ctxt<TFHEpp::lvl1param>& in0, Stream st)
 {
     cudaSetDevice(st.device_id());
     MuxBootstrap<TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ>(out.tlwedevices[st.device_id()],
@@ -615,6 +637,7 @@ void gMux(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& inc, Ctxt<TFHEp
                  in0.tlwedevices[st.device_id()], st.st(), st.device_id());
 }
 
+template<>
 void NMux(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& inc, Ctxt<TFHEpp::lvl1param>& in1, Ctxt<TFHEpp::lvl1param>& in0, Stream st)
 {
     cudaSetDevice(st.device_id());
@@ -628,6 +651,7 @@ void NMux(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& inc, Ctxt<TFHEp
     CtxtCopyD2H<TFHEpp::lvl1param>(out, st);
 }
 
+template<>
 void gNMux(Ctxt<TFHEpp::lvl1param>& out, Ctxt<TFHEpp::lvl1param>& inc, Ctxt<TFHEpp::lvl1param>& in1, Ctxt<TFHEpp::lvl1param>& in0, Stream st)
 {
     cudaSetDevice(st.device_id());

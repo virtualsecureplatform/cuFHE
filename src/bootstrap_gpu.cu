@@ -29,6 +29,7 @@
 #include <include/ntt_gpu/ntt.cuh>
 #include <limits>
 #include <vector>
+#include <algorithm>
 
 namespace cufhe {
 template<class P = TFHEpp::lvl1param>
@@ -321,8 +322,8 @@ __device__ inline void __SampleExtractIndex__(typename P::T* const res, const ty
         }else {
             const uint k = i >> P::nbit; 
             const uint n = i & nmask;
-            if (n  <= index) res[index] = in[k*P::n + index - n];
-            else res[index] = -in[k*P::n + P::n + index-n];
+            if (n  <= index) res[i] = in[k*P::n + index - n];
+            else res[i] = -in[k*P::n + P::n + index-n];
         }
     }
 }
@@ -335,9 +336,12 @@ __device__ inline void __HomGate__(typename brP::targetP::T* const out,
                                    const CuNTTHandler<> ntt)
 {
     __shared__ typename iksP::targetP::T tlwe[iksP::targetP::k*iksP::targetP::n+1]; 
-    __shared__ typename brP::targetP::T trlwe[(brP::targetP::k+1)*brP::targetP::n]; 
 
     IdentityKeySwitchPreAdd<iksP, casign, cbsign, offset>(tlwe, in0, in1, ksk);
+    __syncthreads();
+
+    __shared__ typename brP::targetP::T trlwe[(brP::targetP::k+1)*brP::targetP::n]; 
+
     __BlindRotate__<brP>(trlwe, tlwe, μ, bk,ntt);
     __SampleExtractIndex__<typename brP::targetP,0>(out,trlwe);
     __threadfence();
@@ -601,8 +605,10 @@ template<class P>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __CopyBootstrap__(
     typename P::T* const out, const typename P::T* const in)
 {
-    const uint32_t tid = ThisThreadRankInBlock();
-    out[tid] = in[tid];
+    const uint tid = ThisThreadRankInBlock();
+    const uint bdim = ThisBlockSize();
+    for (int i = tid; i <= P::k*P::n; i += bdim) 
+        out[i] = in[i];
     __syncthreads();
     __threadfence();
 }
@@ -611,8 +617,10 @@ template<class P>
 __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NotBootstrap__(
     typename P::T* const out, const typename P::T* const in)
 {
-    const uint32_t tid = ThisThreadRankInBlock();
-    out[tid] = -in[tid];
+    const uint tid = ThisThreadRankInBlock();
+    const uint bdim = ThisBlockSize();
+    for (int i = tid; i <= P::k*P::n; i += bdim) 
+        out[i] = -in[i];
     __syncthreads();
     __threadfence();
 }
@@ -627,17 +635,18 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __MuxBootstrap__(
     __shared__ typename iksP::targetP::T tlwelvl0[iksP::targetP::k*iksP::targetP::n+1]; 
 
     IdentityKeySwitchPreAdd<iksP, 1, 1, -iksP::domainP::μ>(tlwelvl0, inc, in1, ksk);
-    __threadfence();
+    __syncthreads();
     __shared__ typename brP::targetP::T tlwe1[(brP::targetP::k+1)*brP::targetP::n]; 
     __BlindRotate__<brP>(tlwe1,tlwelvl0,μ,bk,ntt);
     __SampleExtractIndex__<typename brP::targetP,0>(out, tlwe1);
 
-    IdentityKeySwitchPreAdd<iksP, 1, 1, -iksP::domainP::μ>(tlwelvl0, inc, in0, ksk);
-    __threadfence();
+    IdentityKeySwitchPreAdd<iksP, -1, 1, -iksP::domainP::μ>(tlwelvl0, inc, in0, ksk);
+    __syncthreads();
     __shared__ typename brP::targetP::T tlwe0[(brP::targetP::k+1)*brP::targetP::n]; 
     __BlindRotate__<brP>(tlwe0,tlwelvl0,μ,bk,ntt);
     __SampleExtractIndex__<typename brP::targetP,0>(tlwe1, tlwe0);
-    __threadfence();
+    
+    __syncthreads();
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
     volatile const uint32_t bdim = ThisBlockSize();
@@ -661,18 +670,19 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NMuxBootstrap__(
     __shared__ typename iksP::targetP::T tlwelvl0[iksP::targetP::k*iksP::targetP::n+1]; 
 
     IdentityKeySwitchPreAdd<iksP, 1, 1, -iksP::domainP::μ>(tlwelvl0, inc, in1, ksk);
-    __threadfence();
+    __syncthreads();
     __shared__ typename brP::targetP::T tlwe1[(brP::targetP::k+1)*brP::targetP::n]; 
     __BlindRotate__<brP>(tlwe1,tlwelvl0,μ,bk,ntt);
     __SampleExtractIndex__<typename brP::targetP,0>(out, tlwe1);
 
-    IdentityKeySwitchPreAdd<iksP, 1, 1, -iksP::domainP::μ>(tlwelvl0, inc, in0, ksk);
-    __threadfence();
+    IdentityKeySwitchPreAdd<iksP, -1, 1, -iksP::domainP::μ>(tlwelvl0, inc, in0, ksk);
+    __syncthreads();
     __shared__ typename brP::targetP::T tlwe0[(brP::targetP::k+1)*brP::targetP::n]; 
     __BlindRotate__<brP>(tlwe0,tlwelvl0,μ,bk,ntt);
     __SampleExtractIndex__<typename brP::targetP,0>(tlwe1, tlwe0);
 
-    __threadfence();
+    __syncthreads();
+
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
     volatile const uint32_t bdim = ThisBlockSize();
@@ -1090,7 +1100,7 @@ template<class P>
 void CopyBootstrap(typename P::T* const out, const typename P::T* const in,
                    const cudaStream_t st, const int gpuNum)
 {
-    __CopyBootstrap__<P><<<1, P::n + 1, 0, st>>>(out, in);
+    __CopyBootstrap__<P><<<1, std::min(P::n + 1,NUM_THREAD4HOMGATE), 0, st>>>(out, in);
     CuCheckError();
 }
 #define INST(P) \
@@ -1104,7 +1114,7 @@ template<class P>
 void NotBootstrap(typename P::T* const out, const typename P::T* const in,
                   const cudaStream_t st, const int gpuNum)
 {
-    __NotBootstrap__<P><<<1, P::n + 1, 0, st>>>(out, in);
+    __NotBootstrap__<P><<<1, std::min(P::n + 1,NUM_THREAD4HOMGATE), 0, st>>>(out, in);
     CuCheckError();
 }
 #define INST(P) \

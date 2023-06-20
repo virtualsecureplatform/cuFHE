@@ -42,7 +42,8 @@ int main()
     const uint32_t kNumTests = kNumSMs * 32;  // * 8;
     constexpr uint32_t kNumLevels = 10;  // Gate Types, Mux is counted as 2.
 
-    using Param = TFHEpp::lvl0param;
+    // using Param = TFHEpp::lvl0param;
+    using Param = TFHEpp::lvl1param;
     using brP = TFHEpp::lvl01param;
     using iksP = TFHEpp::lvl10param;
 
@@ -55,7 +56,7 @@ int main()
 
     // MUX Need 3 input
     vector<uint8_t> pt(4 * kNumTests);
-    vector<Ctxt<TFHEpp::lvl0param>> ct(4 * kNumTests);
+    vector<Ctxt<Param>> ct(4 * kNumTests);
     Synchronize();
     bool correct;
 

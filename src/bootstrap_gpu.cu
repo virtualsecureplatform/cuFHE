@@ -315,8 +315,8 @@ __device__ inline void __SampleExtractIndex__(typename P::T* const res, const ty
     const uint32_t tid = ThisThreadRankInBlock();
     const uint32_t bdim = ThisBlockSize();
     constexpr uint nmask = P::n-1; 
-    for (uint i = tid; i <= P::targetP::k*P::targetP::n; i += bdim) {
-        if (i == P::targetP::k*P::targetP::n){
+    for (uint i = tid; i <= P::k*P::n; i += bdim) {
+        if (i == P::k*P::n){
             res[P::k*P::n] = in[P::k*P::n+index];
         }else {
             const uint k = i >> P::nbit; 
@@ -337,9 +337,9 @@ __device__ inline void __HomGate__(typename brP::targetP::T* const out,
     __shared__ typename iksP::targetP::T tlwe[iksP::targetP::k*iksP::targetP::n+1]; 
     __shared__ typename brP::targetP::T trlwe[(brP::targetP::k+1)*brP::targetP::n]; 
 
-    IdentityKeySwitchPreAdd<iksP>(tlwe, in0, in1, ksk);
-    __BlindRotate__<brP, casign,cbsign,offset>(trlwe, tlwe,bk,ntt);
-    __SampleExtractIndex__<brP::targetP,0>(out,trlwe);
+    IdentityKeySwitchPreAdd<iksP, casign, cbsign, offset>(tlwe, in0, in1, ksk);
+    __BlindRotate__<brP>(trlwe, tlwe, μ, bk,ntt);
+    __SampleExtractIndex__<typename brP::targetP,0>(out,trlwe);
     __threadfence();
 }
 
@@ -446,6 +446,64 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __OrYNBootstrap__(
     const CuNTTHandler<> ntt)
 {
     __HomGate__<brP, μ, iksP, 1, -1, brP::domainP::μ>(out, in0, in1, bk, ksk, ntt);
+}
+
+// Mux(inc,in1,in0) = inc?in1:in0 = inc&in1 + (!inc)&in0
+template<class brP, typename brP::targetP::T μ, class  iksP>
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __MuxBootstrap__(
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
+    const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, const FFP* const bk,
+    const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
+{
+    __shared__ typename brP::targetP::T tlwe1[(brP::targetP::k+1)*brP::targetP::n]; 
+    __shared__ typename brP::targetP::T tlwe0[(brP::targetP::k+1)*brP::targetP::n]; 
+
+    __BlindRotatePreAdd__<brP, 1, 1, -brP::domainP::μ>(tlwe1,inc,in1,bk,ntt);
+    __BlindRotatePreAdd__<brP, -1, 1, -brP::domainP::μ>(tlwe0,inc,in0,bk,ntt);
+
+    volatile const uint32_t tid = ThisThreadRankInBlock();
+    volatile const uint32_t bdim = ThisBlockSize();
+#pragma unroll
+    for (int i = tid; i <= brP::targetP::n; i += bdim) {
+        tlwe1[i] += tlwe0[i];
+        if (i == brP::targetP::n) {
+            tlwe1[brP::targetP::n] += μ;
+        }
+    }
+
+    __syncthreads();
+
+    KeySwitch<iksP>(out, tlwe1, ksk);
+    __threadfence();
+}
+
+// NMux(inc,in1,in0) = !(inc?in1:in0) = !(inc&in1 + (!inc)&in0)
+template<class brP, typename brP::targetP::T μ, class  iksP>
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NMuxBootstrap__(
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
+    const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, const FFP* const bk,
+    const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
+{
+    __shared__ typename brP::targetP::T tlwe1[(brP::targetP::k+1)*brP::targetP::n]; 
+    __shared__ typename brP::targetP::T tlwe0[(brP::targetP::k+1)*brP::targetP::n]; 
+
+    __BlindRotatePreAdd__<brP, 1, 1, -brP::domainP::μ>(tlwe1,inc,in1,bk,ntt);
+    __BlindRotatePreAdd__<brP, -1, 1, -brP::domainP::μ>(tlwe0,inc,in0,bk,ntt);
+
+    volatile const uint32_t tid = ThisThreadRankInBlock();
+    volatile const uint32_t bdim = ThisBlockSize();
+#pragma unroll
+    for (int i = tid; i <= brP::targetP::n; i += bdim) {
+        tlwe1[i] = -tlwe1[i] - tlwe0[i];
+        if (i == brP::targetP::n) {
+            tlwe1[brP::targetP::n] -= μ;
+        }
+    }
+
+    __syncthreads();
+
+    KeySwitch<iksP>(out, tlwe1, ksk);
+    __threadfence();
 }
 
 // iks br ver.
@@ -559,119 +617,124 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NotBootstrap__(
     __threadfence();
 }
 
-// Mux(inc,in1,in0) = inc?in1:in0 = inc&in1 + (!inc)&in0
-template<class brP, typename brP::targetP::T μ, class  iksP>
-__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __MuxBootstrap__(
-    typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
-    const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, const FFP* const bk,
-    const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
-{
-    // To use over 48 KiB shared Memory, the dynamic allocation is required.
-    extern __shared__ FFP sh[];
-    FFP* sh_acc_ntt = &sh[0];
-    // Use Last section to hold tlwe. This may to make these data in serial
-    typename brP::targetP::T* tlwe1 =
-        (typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 1) * brP::targetP::n];
-     typename brP::targetP::T* tlwe0 =
-        ( typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 2) * brP::targetP::n];
-    // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
-    register uint32_t bar =
-        2 * brP::targetP::n -
-        modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ + inc[brP::domainP::n] +
-                                      in1[brP::domainP::n]);
-    RotatedTestVector<typename brP::targetP>(tlwe1, bar, brP::domainP::μ);
+// // Mux(inc,in1,in0) = inc?in1:in0 = inc&in1 + (!inc)&in0
+// template<class iksP, class brP, typename brP::targetP::T μ>
+// __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __MuxBootstrap__(
+//     typename brP::targetP::T* const out, const typename iksP::domainP::T* const inc,
+//     const typename iksP::domainP::T* const in1, const typename iksP::domainP::T* const in0, const FFP* const bk,
+//     const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
+// {
 
-    // accumulate
-    for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
-        bar = modSwitchFromTorus<typename brP::targetP>(0 + inc[i] + in1[i]);
-        Accumulate<brP>(tlwe1, sh_acc_ntt, bar,
-                   bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
-    }
 
-    bar = 2 * brP::targetP::n -
-          modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ - inc[brP::domainP::n] +
-                                        in0[brP::domainP::n]);
+//     // To use over 48 KiB shared Memory, the dynamic allocation is required.
+//     extern __shared__ FFP sh[];
+//     FFP* sh_acc_ntt = &sh[0];
+//     // Use Last section to hold tlwe. This may to make these data in serial
+//     typename brP::targetP::T* tlwe1 =
+//         (typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 1) * brP::targetP::n];
+//     typename brP::targetP::T* tlwe0 =
+//         ( typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 2) * brP::targetP::n];
+//     typename P::targetP::T* tlwelvl0 =
+//         ( typename iksP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 3) * brP::targetP::n];
 
-    RotatedTestVector<typename brP::targetP>(tlwe0, bar, μ);
+//     KeySwitch<iksP>(out, tlwe1, ksk);
 
-    for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
-        bar = modSwitchFromTorus<brP::targetP>(0 - inc[i] + in0[i]);
-        Accumulate<brP>(tlwe0, sh_acc_ntt, bar,
-                   bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
-    }
+//     __threadfence();
+//     register uint32_t bar =
+//         2 * brP::targetP::n -
+//         modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ + inc[brP::domainP::n] +
+//                                       in1[brP::domainP::n]);
+//     RotatedTestVector<typename brP::targetP>(tlwe1, bar, brP::domainP::μ);
 
-    volatile const uint32_t tid = ThisThreadRankInBlock();
-    volatile const uint32_t bdim = ThisBlockSize();
-#pragma unroll
-    for (int i = tid; i <= brP::targetP::n; i += bdim) {
-        tlwe1[i] += tlwe0[i];
-        if (i == brP::targetP::n) {
-            tlwe1[brP::targetP::n] += μ;
-        }
-    }
+//     // accumulate
+//     for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
+//         bar = modSwitchFromTorus<typename brP::targetP>(0 + inc[i] + in1[i]);
+//         Accumulate<brP>(tlwe1, sh_acc_ntt, bar,
+//                    bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
+//     }
 
-    __syncthreads();
+//     bar = 2 * brP::targetP::n -
+//           modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ - inc[brP::domainP::n] +
+//                                         in0[brP::domainP::n]);
 
-    KeySwitch<iksP>(out, tlwe1, ksk);
-    __threadfence();
-}
+//     RotatedTestVector<typename brP::targetP>(tlwe0, bar, μ);
 
-// NMux(inc,in1,in0) = !(inc?in1:in0) = !(inc&in1 + (!inc)&in0)
-template<class brP, typename brP::targetP::T μ, class  iksP>
-__global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NMuxBootstrap__(
-    typename iksP::targetP::T* const out, const typename brP::domainP::T* const inc,
-    const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, const FFP* const bk,
-    const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
-{
-    // To use over 48 KiB shared Memory, the dynamic allocation is required.
-    extern __shared__ FFP sh[];
-    FFP* sh_acc_ntt = &sh[0];
-    // Use Last section to hold tlwe. This may to make these data in serial
-    typename brP::targetP::T* tlwe1 =
-        (typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 1) * brP::targetP::n];
-     typename brP::targetP::T* tlwe0 =
-        ( typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 2) * brP::targetP::n];
-    // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
-    register uint32_t bar =
-        2 * brP::targetP::n -
-        modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ + inc[brP::domainP::n] +
-                                      in1[brP::domainP::n]);
-    RotatedTestVector<typename brP::targetP>(tlwe1, bar, brP::domainP::μ);
+//     for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
+//         bar = modSwitchFromTorus<brP::targetP>(0 - inc[i] + in0[i]);
+//         Accumulate<brP>(tlwe0, sh_acc_ntt, bar,
+//                    bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
+//     }
 
-    // accumulate
-    for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
-        bar = modSwitchFromTorus<typename brP::targetP>(0 + inc[i] + in1[i]);
-        Accumulate<brP>(tlwe1, sh_acc_ntt, bar,
-                   bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
-    }
+//     volatile const uint32_t tid = ThisThreadRankInBlock();
+//     volatile const uint32_t bdim = ThisBlockSize();
+// #pragma unroll
+//     for (int i = tid; i <= brP::targetP::n; i += bdim) {
+//         tlwe1[i] += tlwe0[i];
+//         if (i == brP::targetP::n) {
+//             tlwe1[brP::targetP::n] += μ;
+//         }
+//     }
 
-    bar = 2 * brP::targetP::n -
-          modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ - inc[brP::domainP::n] +
-                                        in0[brP::domainP::n]);
+//     __syncthreads();
 
-    RotatedTestVector<typename brP::targetP>(tlwe0, bar, μ);
+// }
 
-    for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
-        bar = modSwitchFromTorus<brP::targetP>(0 - inc[i] + in0[i]);
-        Accumulate<brP>(tlwe0, sh_acc_ntt, bar,
-                   bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
-    }
+// // NMux(inc,in1,in0) = !(inc?in1:in0) = !(inc&in1 + (!inc)&in0)
+// template<class iksP, class brP, typename brP::targetP::T μ>
+// __global__ __launch_bounds__(NUM_THREAD4HOMGATE) void __NMuxBootstrap__(
+//     typename brP::targetP::T* const out, const typename iksP::domainP::T* const inc,
+//     const typename iksP::domainP::T* const in1, const typename iksP::domainP::T* const in0, const FFP* const bk,
+//     const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
+// {
+//     // To use over 48 KiB shared Memory, the dynamic allocation is required.
+//     extern __shared__ FFP sh[];
+//     FFP* sh_acc_ntt = &sh[0];
+//     // Use Last section to hold tlwe. This may to make these data in serial
+//     typename brP::targetP::T* tlwe1 =
+//         (typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 1) * brP::targetP::n];
+//      typename brP::targetP::T* tlwe0 =
+//         ( typename brP::targetP::T*)&sh[((brP::targetP::k+1) * brP::targetP::l + 2) * brP::targetP::n];
+//     // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
+//     register uint32_t bar =
+//         2 * brP::targetP::n -
+//         modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ + inc[brP::domainP::n] +
+//                                       in1[brP::domainP::n]);
+//     RotatedTestVector<typename brP::targetP>(tlwe1, bar, brP::domainP::μ);
 
-    volatile const uint32_t tid = ThisThreadRankInBlock();
-    volatile const uint32_t bdim = ThisBlockSize();
-#pragma unroll
-    for (int i = tid; i <= brP::targetP::n; i += bdim) {
-        tlwe1[i] = -tlwe1[i] - tlwe0[i];
-        if (i == brP::targetP::n) {
-            tlwe1[brP::targetP::n] -= μ;
-        }
-    }
+//     // accumulate
+//     for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
+//         bar = modSwitchFromTorus<typename brP::targetP>(0 + inc[i] + in1[i]);
+//         Accumulate<brP>(tlwe1, sh_acc_ntt, bar,
+//                    bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
+//     }
 
-    __syncthreads();
+//     bar = 2 * brP::targetP::n -
+//           modSwitchFromTorus<typename brP::targetP>(-brP::domainP::μ - inc[brP::domainP::n] +
+//                                         in0[brP::domainP::n]);
 
-    KeySwitch<iksP>(out, tlwe1, ksk);
-    __threadfence();
-}
+//     RotatedTestVector<typename brP::targetP>(tlwe0, bar, μ);
+
+//     for (int i = 0; i < brP::domainP::n; i++) {  // lvl1param::n iterations
+//         bar = modSwitchFromTorus<brP::targetP>(0 - inc[i] + in0[i]);
+//         Accumulate<brP>(tlwe0, sh_acc_ntt, bar,
+//                    bk + (i << brP::targetP::nbit) * (brP::targetP::k+1) * (brP::targetP::k+1) * brP::targetP::l, ntt);
+//     }
+
+//     volatile const uint32_t tid = ThisThreadRankInBlock();
+//     volatile const uint32_t bdim = ThisBlockSize();
+// #pragma unroll
+//     for (int i = tid; i <= brP::targetP::n; i += bdim) {
+//         tlwe1[i] = -tlwe1[i] - tlwe0[i];
+//         if (i == brP::targetP::n) {
+//             tlwe1[brP::targetP::n] -= μ;
+//         }
+//     }
+
+//     __syncthreads();
+
+//     KeySwitch<iksP>(out, tlwe1, ksk);
+//     __threadfence();
+// }
 
 void Bootstrap(TFHEpp::lvl0param::T* const out, const TFHEpp::lvl0param::T* const in,
                const lvl1param::T mu, const cudaStream_t st, const int gpuNum)
@@ -741,14 +804,32 @@ template void NandBootstrap<brP,μ,iksP>(typename iksP::targetP::T* const out, c
 INST(TFHEpp::lvl01param, TFHEpp::lvl1param::μ, TFHEpp::lvl10param);
 #undef INST
 
+template<class iksP, class brP, typename brP::targetP::T μ>
+void NandBootstrap(typename brP::targetP::T* const out, const typename iksP::domainP::T* const in0,
+                   const typename iksP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+{
+    cudaFuncSetAttribute(__NandBootstrap__<iksP, brP, brP::targetP::μ>,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         MEM4HOMGATE<typename brP::targetP>);
+    __NandBootstrap__<iksP, brP, μ><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
+        out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
+        *ntt_handlers[gpuNum]);
+    CuCheckError();
+}
+#define INST(iksP, brP, μ)                                                \
+template void NandBootstrap<iksP, brP,μ>(typename brP::targetP::T* const out, const typename iksP::domainP::T* const in0, \
+                                         const typename iksP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
+INST(TFHEpp::lvl10param, TFHEpp::lvl01param, TFHEpp::lvl1param::μ);
+#undef INST
+
 template<class brP, typename brP::targetP::T μ, class iksP>
 void OrBootstrap(typename iksP::targetP::T* const out, const typename brP::domainP::T* const in0,
                    const typename brP::domainP::T* const in1, const cudaStream_t st, const int gpuNum)
 {
     cudaFuncSetAttribute(__OrBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE<TFHEpp::lvl1param>);
-    __OrBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
+                         MEM4HOMGATE<typename brP::targetP>);
+    __OrBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -765,8 +846,8 @@ void OrYNBootstrap(typename iksP::targetP::T* const out, const typename brP::dom
 {
     cudaFuncSetAttribute(__OrYNBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE<TFHEpp::lvl1param>);
-    __OrYNBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
+                         MEM4HOMGATE<typename brP::targetP>);
+    __OrYNBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -783,8 +864,8 @@ void OrNYBootstrap(typename iksP::targetP::T* const out, const typename brP::dom
 {
     cudaFuncSetAttribute(__OrNYBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE<TFHEpp::lvl1param>);
-    __OrNYBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
+                         MEM4HOMGATE<typename brP::targetP>);
+    __OrNYBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -801,8 +882,8 @@ void AndBootstrap(typename iksP::targetP::T* const out, const typename brP::doma
 {
     cudaFuncSetAttribute(__AndBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE<TFHEpp::lvl1param>);
-    __AndBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
+                         MEM4HOMGATE<typename brP::targetP>);
+    __AndBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -819,8 +900,8 @@ void AndYNBootstrap(typename iksP::targetP::T* const out, const typename brP::do
 {
     cudaFuncSetAttribute(__AndYNBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE<TFHEpp::lvl1param>);
-    __AndYNBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
+                         MEM4HOMGATE<typename brP::targetP>);
+    __AndYNBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -837,8 +918,8 @@ void AndNYBootstrap(typename iksP::targetP::T* const out, const typename brP::do
 {
     cudaFuncSetAttribute(__AndNYBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE<TFHEpp::lvl1param>);
-    __AndNYBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
+                         MEM4HOMGATE<typename brP::targetP>);
+    __AndNYBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -855,8 +936,8 @@ void NorBootstrap(typename iksP::targetP::T* const out, const typename brP::doma
 {
     cudaFuncSetAttribute(__NorBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE<TFHEpp::lvl1param>);
-    __NorBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
+                         MEM4HOMGATE<typename brP::targetP>);
+    __NorBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -873,8 +954,8 @@ void XorBootstrap(typename iksP::targetP::T* const out, const typename brP::doma
 {
     cudaFuncSetAttribute(__XorBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE<TFHEpp::lvl1param>);
-    __XorBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
+                         MEM4HOMGATE<typename brP::targetP>);
+    __XorBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();
@@ -891,8 +972,8 @@ void XnorBootstrap(typename iksP::targetP::T* const out, const typename brP::dom
 {
     cudaFuncSetAttribute(__XnorBootstrap__<brP, brP::targetP::μ, iksP>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         MEM4HOMGATE<TFHEpp::lvl1param>);
-    __XnorBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(
+                         MEM4HOMGATE<typename brP::targetP>);
+    __XnorBootstrap__<brP, brP::targetP::μ, iksP><<<1, NUM_THREAD4HOMGATE, MEM4HOMGATE<typename brP::targetP>, st>>>(
         out, in0, in1, bk_ntts[gpuNum], ksk_devs[gpuNum],
         *ntt_handlers[gpuNum]);
     CuCheckError();

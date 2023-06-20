@@ -42,10 +42,14 @@ int main()
     const uint32_t kNumTests = kNumSMs * 32;  // * 8;
     constexpr uint32_t kNumLevels = 10;  // Gate Types, Mux is counted as 2.
 
+    using Param = TFHEpp::lvl0param;
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
+
     TFHEpp::SecretKey* sk = new TFHEpp::SecretKey();
     TFHEpp::EvalKey ek;
-    ek.emplacebk<TFHEpp::lvl01param>(*sk);
-    ek.emplaceiksk<TFHEpp::lvl10param>(*sk);
+    ek.emplacebk<brP>(*sk);
+    ek.emplaceiksk<iksP>(*sk);
 
     cout << "n:" << sk->params.lvl0.n << endl;
 
@@ -63,19 +67,19 @@ int main()
     Stream* st = new Stream[kNumSMs];
     for (int i = 0; i < kNumSMs; i++) st[i].Create();
 
-    Test("NAND", Nand, NandCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("OR", Or, OrCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("ORYN", OrYN, OrYNCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("ORNY", OrNY, OrNYCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("AND", And, AndCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("ANDYN", AndYN, AndYNCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("ANDNY", AndNY, AndNYCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("XOR", Xor, XorCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("XNOR", Xnor, XnorCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("MUX", Mux, MuxCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("NMUX", NMux, NMuxCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("NOT", Not, NotCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("COPY", Copy, CopyCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("NAND", Nand<Param>, NandCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("OR", Or<Param>, OrCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("ORYN", OrYN<Param>, OrYNCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("ORNY", OrNY<Param>, OrNYCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("AND", And<Param>, AndCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("ANDYN", AndYN<Param>, AndYNCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("ANDNY", AndNY<Param>, AndNYCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("XOR", Xor<Param>, XorCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("XNOR", Xnor<Param>, XnorCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("MUX", Mux<Param>, MuxCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("NMUX", NMux<Param>, NMuxCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("NOT", Not<Param>, NotCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test<Param>("COPY", Copy<Param>, CopyCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
 
     for (int i = 0; i < kNumSMs; i++) st[i].Destroy();
     delete[] st;

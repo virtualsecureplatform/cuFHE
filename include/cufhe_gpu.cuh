@@ -33,6 +33,7 @@
 #include <cuda_runtime.h>
 
 #include "ntt_gpu/ntt_ffp.cuh"
+#include "bootstrap_gpu.cuh"
 
 #include <array>
 #include <cloudkey.hpp>
@@ -196,30 +197,6 @@ class Stream {
     int _device_id;
 };  // class Stream
 
-void TRGSW2NTT(cuFHETRGSWNTTlvl1& trgswntt,
-               const TFHEpp::TRGSW<TFHEpp::lvl1param>& trgsw, Stream& st);
-void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt<TFHEpp::lvl0param>& in,
-                                         Stream st);
-void Refresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st);
-void SampleExtractAndKeySwitch(Ctxt<TFHEpp::lvl0param>& out, const cuFHETRLWElvl1& in, Stream st);
-void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1,
-             cuFHETRLWElvl1& c0, Stream st);
-void And(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void AndYN(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void AndNY(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void Or(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void OrYN(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void OrNY(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void Nand(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void Nor(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void Xor(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void Xnor(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void Not(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st);
-void Copy(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st);
-void CopyOnHost(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>&);
-void Mux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp::lvl0param>& in1, Ctxt<TFHEpp::lvl0param>& in0, Stream st);
-void NMux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp::lvl0param>& in1, Ctxt<TFHEpp::lvl0param>& in0, Stream st);
-
 bool StreamQuery(Stream st);
 
 template<class P>
@@ -238,23 +215,110 @@ inline void CtxtCopyD2H(Ctxt<P>& c, Stream st)
                     sizeof(c.tlwehost), cudaMemcpyDeviceToHost, st.st());
 }
 
+void TRGSW2NTT(cuFHETRGSWNTTlvl1& trgswntt,
+               const TFHEpp::TRGSW<TFHEpp::lvl1param>& trgsw, Stream& st);
+void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt<TFHEpp::lvl0param>& in,
+                                         Stream st);
+void Refresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st);
+void SampleExtractAndKeySwitch(Ctxt<TFHEpp::lvl0param>& out, const cuFHETRLWElvl1& in, Stream st);
+void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1,
+             cuFHETRLWElvl1& c0, Stream st);
+
+template<class P>
+void Not(Ctxt<P>& out, Ctxt<P>& in, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    CtxtCopyH2D<P>(in, st);
+    NotBootstrap<P>(out.tlwedevices[st.device_id()],
+                 in.tlwedevices[st.device_id()], st.st(), st.device_id());
+    CtxtCopyD2H<P>(out, st);
+}
+
+template<class P>
+void gNot(Ctxt<P>& out, Ctxt<P>& in, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    NotBootstrap<P>(out.tlwedevices[st.device_id()],
+                 in.tlwedevices[st.device_id()], st.st(), st.device_id());
+}
+
+template<class P>
+void Copy(Ctxt<P>& out, Ctxt<P>& in, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    CtxtCopyH2D<P>(in, st);
+    CopyBootstrap<P>(out.tlwedevices[st.device_id()],
+                  in.tlwedevices[st.device_id()], st.st(), st.device_id());
+    CtxtCopyD2H<P>(out, st);
+}
+
+template<class P>
+void gCopy(Ctxt<P>& out, Ctxt<P>& in, Stream st)
+{
+    cudaSetDevice(st.device_id());
+    CopyBootstrap<P>(out.tlwedevices[st.device_id()],
+                  in.tlwedevices[st.device_id()], st.st(), st.device_id());
+}
+
+template<class P>
+void CopyOnHost(Ctxt<P>& out, Ctxt<P>& in) { out.tlwehost = in.tlwehost; }
+
+template<class P>
+void And(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void AndYN(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void AndNY(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void Or(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void OrYN(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void OrNY(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void Nand(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void Nor(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void Xor(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void Xnor(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void Mux(Ctxt<P>& out, Ctxt<P>& inc, Ctxt<P>& in1, Ctxt<P>& in0, Stream st);
+template<class P>
+void NMux(Ctxt<P>& out, Ctxt<P>& inc, Ctxt<P>& in1, Ctxt<P>& in0, Stream st);
+
 void gSampleExtractAndKeySwitch(Ctxt<TFHEpp::lvl0param>& out, const cuFHETRLWElvl1& in, Stream st);
 void gGateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt<TFHEpp::lvl0param>& in,
                                           Stream st);
 void gRefresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st);
-void gNand(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gOr(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gOrYN(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gOrNY(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gAnd(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gAndYN(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gAndNY(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gNor(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gXor(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gXnor(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in0, Ctxt<TFHEpp::lvl0param>& in1, Stream st);
-void gNot(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st);
-void gMux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp::lvl0param>& in1, Ctxt<TFHEpp::lvl0param>& in0, Stream st);
-void gNMux(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& inc, Ctxt<TFHEpp::lvl0param>& in1, Ctxt<TFHEpp::lvl0param>& in0, Stream st);
-void gCopy(Ctxt<TFHEpp::lvl0param>& out, Ctxt<TFHEpp::lvl0param>& in, Stream st);
+template<class P>
+void gNand(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gOr(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gOrYN(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gOrNY(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gAnd(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gAndYN(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gAndNY(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gNor(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gXor(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gXnor(Ctxt<P>& out, Ctxt<P>& in0, Ctxt<P>& in1, Stream st);
+template<class P>
+void gNot(Ctxt<P>& out, Ctxt<P>& in, Stream st);
+template<class P>
+void gMux(Ctxt<P>& out, Ctxt<P>& inc, Ctxt<P>& in1, Ctxt<P>& in0, Stream st);
+template<class P>
+void gNMux(Ctxt<P>& out, Ctxt<P>& inc, Ctxt<P>& in1, Ctxt<P>& in0, Stream st);
+template<class P>
+void gCopy(Ctxt<P>& out, Ctxt<P>& in, Stream st);
 
 }  // namespace cufhe

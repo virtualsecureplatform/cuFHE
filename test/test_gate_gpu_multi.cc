@@ -41,15 +41,19 @@ int main()
     cudaSetDevice(0);
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
-    const uint32_t kNumSMs = prop.multiProcessorCount * gpuNum * 10;
+    const uint32_t kNumSMs = prop.multiProcessorCount * gpuNum;
     cout << "Number of streams per GPU:\t" << prop.multiProcessorCount << endl;
-    const uint32_t kNumTests = kNumSMs * 10;  // * 8;
+    const uint32_t kNumTests = kNumSMs * 32;  // * 8;
     constexpr uint32_t kNumLevels = 10;  // Gate Types, Mux is counted as 2.
+
+    using Param = TFHEpp::lvl0param;
+    using brP = TFHEpp::lvl01param;
+    using iksP = TFHEpp::lvl10param;
 
     TFHEpp::SecretKey* sk = new TFHEpp::SecretKey();
     TFHEpp::EvalKey ek;
-    ek.emplacebk<TFHEpp::lvl01param>(*sk);
-    ek.emplaceiksk<TFHEpp::lvl10param>(*sk);
+    ek.emplacebk<brP>(*sk);
+    ek.emplaceiksk<iksP>(*sk);
 
     cout << "n:" << sk->params.lvl0.n << endl;
 
@@ -67,18 +71,18 @@ int main()
     Stream* st = new Stream[kNumSMs * gpuNum];
     for (int i = 0; i < kNumSMs; i++) st[i].Create();
 
-    Test("NAND", Nand, NandCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("OR", Or, OrCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("ORYN", OrYN, OrYNCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("ORNY", OrNY, OrNYCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("AND", And, AndCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("ANDYN", AndYN, AndYNCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("ANDNY", AndNY, AndNYCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("XOR", Xor, XorCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("XNOR", Xnor, XnorCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("MUX", Mux, MuxCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("NOT", Not, NotCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
-    Test("COPY", Copy, CopyCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("NAND", Nand<Param>, NandCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("OR", Or<Param>, OrCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("ORYN", OrYN<Param>, OrYNCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("ORNY", OrNY<Param>, OrNYCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("AND", And<Param>, AndCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("ANDYN", AndYN<Param>, AndYNCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("ANDNY", AndNY<Param>, AndNYCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("XOR", Xor<Param>, XorCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("XNOR", Xnor<Param>, XnorCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("MUX", Mux<Param>, MuxCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("NOT", Not<Param>, NotCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
+    Test("COPY", Copy<Param>, CopyCheck, pt, ct, st, kNumTests, kNumSMs, *sk);
 
     for (int i = 0; i < kNumSMs; i++) st[i].Destroy();
     delete[] st;

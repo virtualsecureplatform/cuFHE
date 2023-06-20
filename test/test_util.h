@@ -5,9 +5,9 @@
 using namespace std;
 
 namespace cufhe{
-template <class Func, class Check>
+template <class P, class Func, class Check>
 void Test(string type, Func func, Check check, vector<uint8_t>& pt,
-          vector<Ctxt<TFHEpp::lvl0param>>& ct, Stream* st, int kNumTests, int kNumSMs,
+          vector<Ctxt<P>>& ct, Stream* st, int kNumTests, int kNumSMs,
           TFHEpp::SecretKey& sk)
 {
     cout << "------ Test " << type << " Gate ------" << endl;
@@ -22,9 +22,9 @@ void Test(string type, Func func, Check check, vector<uint8_t>& pt,
     uniform_int_distribution<uint32_t> binary(0, 1);
     for (int i = 0; i < 4 * kNumTests; i++) {
         pt[i] = binary(engine) > 0;
-        ct[i].tlwehost = TFHEpp::tlweSymEncrypt<TFHEpp::lvl0param>(
-            pt[i] ? TFHEpp::lvl0param::μ : -TFHEpp::lvl0param::μ,
-            TFHEpp::lvl0param::α, sk.key.lvl0);
+        ct[i].tlwehost = TFHEpp::tlweSymEncrypt<P>(
+            pt[i] ? P::μ : -P::μ,
+            P::α, sk.key.lvl0);
     }
 
     float et;
@@ -35,21 +35,21 @@ void Test(string type, Func func, Check check, vector<uint8_t>& pt,
 
 
     for (int i = 0; i < kNumTests; i++) {
-        if constexpr (std::is_invocable_v<Func, Ctxt<TFHEpp::lvl0param>&>) {
+        if constexpr (std::is_invocable_v<Func, Ctxt<P>&>) {
             func(ct[i]);
             check(pt[i]);
         }
-        else if constexpr (std::is_invocable_v<Func, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&, Stream>) {
+        else if constexpr (std::is_invocable_v<Func, Ctxt<P>&, Ctxt<P>&, Stream>) {
             func(ct[i], ct[i + kNumTests], st[i % kNumSMs]);
             check(pt[i], pt[i + kNumTests]);
         }
-        else if constexpr (std::is_invocable_v<Func, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&,
+        else if constexpr (std::is_invocable_v<Func, Ctxt<P>&, Ctxt<P>&, Ctxt<P>&,
                                                Stream>) {
             func(ct[i], ct[i + kNumTests], ct[i + kNumTests * 2],
                  st[i % kNumSMs]);
             check(pt[i], pt[i + kNumTests], pt[i + kNumTests * 2]);
         }
-        else if constexpr (std::is_invocable_v<Func, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&, Ctxt<TFHEpp::lvl0param>&,
+        else if constexpr (std::is_invocable_v<Func, Ctxt<P>&, Ctxt<P>&, Ctxt<P>&, Ctxt<P>&,
                                                Stream>) {
             func(ct[i], ct[i + kNumTests], ct[i + kNumTests * 2],
                  ct[i + kNumTests * 3], st[i % kNumSMs]);
@@ -74,7 +74,7 @@ void Test(string type, Func func, Check check, vector<uint8_t>& pt,
 
     for (int i = 0; i < kNumTests; i++) {
         uint8_t res;
-        res = TFHEpp::tlweSymDecrypt<TFHEpp::lvl0param>(ct[i].tlwehost,
+        res = TFHEpp::tlweSymDecrypt<P>(ct[i].tlwehost,
                                                         sk.key.lvl0);
         if (res != pt[i]) {
             correct = false;

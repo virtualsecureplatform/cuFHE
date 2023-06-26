@@ -42,13 +42,14 @@ using namespace TFHEpp;
 vector<FFP*> bk_ntts;
 vector<CuNTTHandler<>*> ntt_handlers;
 
-__global__ void __TRGSW2NTT__(FFP* const bk_ntt, const TFHEpp::lvl1param::T* const bk,
+template<class P = TFHEpp::lvl1param>
+__global__ void __TRGSW2NTT__(FFP* const bk_ntt, const typename P::T* const bk,
                               CuNTTHandler<> ntt)
 {
-    __shared__ FFP sh_temp[lvl1param::n];
-    const int index = blockIdx.z * ((lvl1param::k+1) * lvl1param::l * (lvl1param::k+1) * lvl1param::n) +
-                      blockIdx.y * (lvl1param::k+1) * lvl1param::n + blockIdx.x * lvl1param::n;
-    ntt.NTT<lvl1param::T>(&bk_ntt[index], &bk[index], sh_temp, 0);
+    __shared__ FFP sh_temp[P::n];
+    const int index = blockIdx.z * ((P::k+1) * P::l * (P::k+1) * P::n) +
+                      blockIdx.y * (P::k+1) * P::n + blockIdx.x * P::n;
+    ntt.NTT<typename P::T>(&bk_ntt[index], &bk[index], sh_temp, 0);
 }
 
 void TRGSW2NTT(cuFHETRGSWNTTlvl1& trgswntt,

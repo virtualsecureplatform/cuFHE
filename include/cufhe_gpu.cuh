@@ -98,10 +98,11 @@ void ctxtDelete(hT &host, std::vector<dT *> &devices)
  *****************************/
 
 // Implementation dependent parameter
-constexpr uint32_t NTT_THRED_UNITBIT =
+constexpr uint32_t NTT_THREAD_UNITBIT =
     3;  // How many threads works as one group in NTT algorithm.
+template<class P = TFHEpp::lvl1param>
 constexpr uint NUM_THREAD4HOMGATE =
-    (TFHEpp::lvl1param::k + 1) * TFHEpp::lvl1param::l * TFHEpp::lvl1param::n >> NTT_THRED_UNITBIT;
+    (P::k + 1) * P::l * P::n >> NTT_THREAD_UNITBIT;
 
 /*****************************
  * Essential Data Structures *

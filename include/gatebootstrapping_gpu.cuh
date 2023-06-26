@@ -106,12 +106,12 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
 
     // (k+1)l NTTs
     // Input/output/buffer use the same shared memory location.
-    if (tid < (P::targetP::k+1) * P::targetP::l * (P::targetP::n >> NTT_THRED_UNITBIT)) {
-        FFP* tar = &sh_acc_ntt[tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)
+    if (tid < (P::targetP::k+1) * P::targetP::l * (P::targetP::n >> NTT_THREAD_UNITBIT)) {
+        FFP* tar = &sh_acc_ntt[tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
                                           << P::targetP::nbit];
         ntt.NTT<FFP>(tar, tar, tar,
-                     tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)
-                                << (P::targetP::nbit - NTT_THRED_UNITBIT));
+                     tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
+                                << (P::targetP::nbit - NTT_THREAD_UNITBIT));
     }
     else {  // must meet 5 sync made by NTTInv
         __syncthreads();
@@ -142,15 +142,15 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
     __syncthreads();
 
     // k+1 NTTInvs and add acc
-    if (tid < (P::targetP::k + 1) * (P::targetP::n >> NTT_THRED_UNITBIT)) {
-        FFP* src = &sh_acc_ntt[(tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)) *
+    if (tid < (P::targetP::k + 1) * (P::targetP::n >> NTT_THREAD_UNITBIT)) {
+        FFP* src = &sh_acc_ntt[(tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)) *
                                (P::targetP::k + 1) * P::targetP::l * P::targetP::n];
         ntt.NTTInvAdd<typename P::targetP::T>(
-            &trlwe[tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)
+            &trlwe[tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
                               << P::targetP::nbit],
             src, src,
-            tid >> (P::targetP::nbit - NTT_THRED_UNITBIT)
-                       << (P::targetP::nbit - NTT_THRED_UNITBIT));
+            tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
+                       << (P::targetP::nbit - NTT_THREAD_UNITBIT));
     }
     else {  // must meet 5 sync made by NTTInv
         __syncthreads();

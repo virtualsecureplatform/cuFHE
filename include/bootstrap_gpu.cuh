@@ -29,8 +29,9 @@
 
 namespace cufhe {
 void InitializeNTThandlers(const int gpuNum);
+template<class P>
 void BootstrappingKeyToNTT(
-    const TFHEpp::BootstrappingKey<TFHEpp::lvl01param>& bk, const int gpuNum);
+    const TFHEpp::BootstrappingKey<P>& bk, const int gpuNum);
 void DeleteBootstrappingKeyNTT(const int gpuNum);
 void CMUXNTTkernel(TFHEpp::lvl1param::T* const res, const FFP* const cs,
                    TFHEpp::lvl1param::T* const c1,

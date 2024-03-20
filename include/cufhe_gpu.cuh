@@ -55,7 +55,7 @@ void SetGPUNum(int gpuNum);
 // Initialize NTThandlers only.
 void Initialize();
 
-void Initialize(const TFHEpp::EvalKey& gk);
+void Initialize(const TFHEpp::EvalKey& ek);
 
 /** Remove everything created in Initialize(). */
 void CleanUp();

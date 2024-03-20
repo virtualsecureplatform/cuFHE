@@ -22,7 +22,18 @@ __device__ inline void KeySwitch(typename P::targetP::T* const lwe,
     const uint32_t bdim = ThisBlockSize();
     for (int i = tid; i <= P::targetP::k*P::targetP::n; i += bdim) {
         typename P::targetP::T res = 0;
-        if (i == P::targetP::k*P::targetP::n) res = tlwe[P::domainP::k*P::domainP::n];
+        if (i == P::targetP::k*P::targetP::n){
+            constexpr uint domain_digit =
+                std::numeric_limits<typename P::domainP::T>::digits;
+            constexpr uint target_digit =
+                std::numeric_limits<typename P::targetP::T>::digits;
+            if constexpr (domain_digit == target_digit)
+                res = tlwe[P::domainP::k * P::domainP::n];
+            else if constexpr (domain_digit > target_digit)
+                res = (tlwe[P::domainP::k * P::domainP::n] + (1ULL << (domain_digit - target_digit - 1))) >> (domain_digit - target_digit);
+            else if constexpr (domain_digit < target_digit)
+                res = static_cast<typename P::targetP::T>(tlwe[P::domainP::k * P::domainP::n]) << (target_digit - domain_digit);
+        }
         for (int j = 0; j < P::domainP::k*P::domainP::n; j++) {
             typename P::domainP::T tmp;
             if (j == 0)
@@ -63,7 +74,19 @@ __device__ inline void IdentityKeySwitchPreAdd(typename P::targetP::T* const lwe
     const uint32_t bdim = ThisBlockSize();
     for (int i = tid; i <= P::targetP::k*P::targetP::n; i += bdim) {
         typename P::targetP::T res = 0;
-        if (i == P::targetP::k*P::targetP::n) res = casign*ina[P::domainP::k*P::domainP::n]+ cbsign*inb[P::domainP::k*P::domainP::n] + offset;
+        if (i == P::targetP::k*P::targetP::n){
+            constexpr uint domain_digit =
+                std::numeric_limits<typename P::domainP::T>::digits;
+            constexpr uint target_digit =
+                std::numeric_limits<typename P::targetP::T>::digits;
+            const typename P::domainP::T added = casign*ina[P::domainP::k*P::domainP::n]+ cbsign*inb[P::domainP::k*P::domainP::n] + offset;
+            if constexpr (domain_digit == target_digit)
+                res = added;
+            else if constexpr (domain_digit > target_digit)
+                res = (added + (1ULL << (domain_digit - target_digit - 1))) >> (domain_digit - target_digit);
+            else if constexpr (domain_digit < target_digit)
+                res = static_cast<typename P::targetP::T>(added) << (target_digit - domain_digit);
+        }
         for (int j = 0; j < P::domainP::k*P::domainP::n; j++) {
             typename P::domainP::T tmp;
             tmp = casign*ina[j]+ cbsign*inb[j] + 0 + decomp_offset;

@@ -118,9 +118,9 @@ void Refresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st)
 void gRefresh(cuFHETRLWElvl1& out, cuFHETRLWElvl1& in, Stream st)
 {
     cudaSetDevice(st.device_id());
-    BootstrapTLWE2TRLWE(out.trlwedevices[st.device_id()],
-                        in.trlwedevices[st.device_id()], TFHEpp::lvl1param::μ,
-                        st.st(), st.device_id());
+    SEIandBootstrap2TRLWE(out.trlwedevices[st.device_id()],
+                          in.trlwedevices[st.device_id()], TFHEpp::lvl1param::μ,
+                          st.st(), st.device_id());
 }
 
 void SampleExtractAndKeySwitch(Ctxt<TFHEpp::lvl0param>& out, const cuFHETRLWElvl1& in, Stream st)

@@ -8,11 +8,11 @@
 namespace cufhe{
 
 template <class P>
-__device__ inline typename P::T modSwitchFromTorus(const uint32_t phase)
+__device__ inline uint32_t modSwitchFromTorus(const typename P::domainP::T phase)
 {
-    constexpr uint32_t Mbit = P::nbit + 1;
+    constexpr uint32_t Mbit = P::targetP::nbit + 1;
     static_assert(32 >= Mbit, "Undefined modSwitchFromTorus!");
-    return (phase + (1U << (31 - Mbit))) >> (32 - Mbit);
+    return (phase >> (std::numeric_limits<typename P::domainP::T>::digits - 1 - P::targetP::nbit));
 }
 
 template <class P>
@@ -176,19 +176,22 @@ __device__ inline void __BlindRotate__(typename P::targetP::T* const out,
     {
         const uint32_t bar =
             2 * P::targetP::n -
-            modSwitchFromTorus<typename P::targetP>(in[P::domainP::k*P::domainP::n]);
+            modSwitchFromTorus<P>(in[P::domainP::k*P::domainP::n]);
         RotatedTestVector<typename P::targetP>(out, bar, mu);
     }
 
     // accumulate
     for (int i = 0; i < P::domainP::k*P::domainP::n; i++) {  // lvl0param::n iterations
-        const uint32_t bar = modSwitchFromTorus<P::targetP>(in[i]);
+        constexpr typename P::domainP::T roundoffset =
+                1ULL << (std::numeric_limits<typename P::domainP::T>::digits - 2 -
+                        P::targetP::nbit);
+        const uint32_t bar = modSwitchFromTorus<P>(in[i]+roundoffset);
         Accumulate<P>(out, sh_acc_ntt, bar,
                    bk + (i << P::targetP::nbit) * (P::targetP::k+1) * (P::targetP::k+1) * P::targetP::l, ntt);
     }
 }
 
-template <class P, int casign, int cbsign, typename P::domainP::T offset>
+template <class P, int casign, int cbsign, std::make_signed_t<typename P::domainP::T> offset>
 __device__ inline void __BlindRotatePreAdd__(typename P::targetP::T* const out,
                                    const typename P::domainP::T* const in0,
                                    const typename P::domainP::T* const in1,
@@ -202,15 +205,18 @@ __device__ inline void __BlindRotatePreAdd__(typename P::targetP::T* const out,
     {
         const uint32_t bar =
             2 * P::targetP::n -
-            modSwitchFromTorus<typename P::targetP>(offset + casign * in0[P::domainP::k*P::domainP::n] +
+            modSwitchFromTorus<P>(offset + casign * in0[P::domainP::k*P::domainP::n] +
                                           cbsign * in1[P::domainP::k*P::domainP::n]);
         RotatedTestVector<typename P::targetP>(out, bar, P::targetP::μ);
     }
 
     // accumulate
     for (int i = 0; i < P::domainP::k*P::domainP::n; i++) {  // lvl0param::n iterations
-        const uint32_t bar = modSwitchFromTorus<P::targetP>(0 + casign * in0[i] +
-                                                           cbsign * in1[i]);
+        constexpr typename P::domainP::T roundoffset =
+                1ULL << (std::numeric_limits<typename P::domainP::T>::digits - 2 -
+                        P::targetP::nbit);
+        const uint32_t bar = modSwitchFromTorus<P>(0 + casign * in0[i] +
+                                                           cbsign * in1[i] + roundoffset);
         Accumulate<P>(out, sh_acc_ntt, bar,
                    bk + (i << P::targetP::nbit) * (P::targetP::k+1) * (P::targetP::k+1) * P::targetP::l, ntt);
     }

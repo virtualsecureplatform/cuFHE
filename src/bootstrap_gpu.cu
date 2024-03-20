@@ -244,15 +244,15 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<TFHEpp::lvl1param>) void __CMUXN
     __syncthreads();
 }
 
-template <class bkP, class iksP>
-__global__ __launch_bounds__(NUM_THREAD4HOMGATE<typename bkP::targetP>) void __Bootstrap__(
-    typename iksP::domainP::T* const out, const typename iksP::domainP::T* const in,
-    const typename bkP::targetP::T mu, const FFP* const bk,
+template <class brP, class iksP>
+__global__ __launch_bounds__(NUM_THREAD4HOMGATE<typename brP::targetP>) void __Bootstrap__(
+    typename iksP::targetP::T* const out, const typename brP::domainP::T* const in,
+    const typename brP::targetP::T mu, const FFP* const bk,
     const typename iksP::targetP::T* const ksk, const CuNTTHandler<> ntt)
 {
-    __shared__ typename bkP::targetP::T tlwe[(bkP::targetP::k+1)*bkP::targetP::n]; 
+    __shared__ typename brP::targetP::T tlwe[(brP::targetP::k+1)*brP::targetP::n]; 
 
-    __BlindRotate__<bkP>(tlwe,in,mu,bk,ntt);
+    __BlindRotate__<brP>(tlwe,in,mu,bk,ntt);
     KeySwitch<iksP>(out, tlwe, ksk);
     __threadfence();
 }
@@ -301,13 +301,15 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<TFHEpp::lvl1param>) void __SEIan
 
     // test vector
     // acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
-    register uint32_t bar = 2 * lvl1param::n - modSwitchFromTorus<lvl1param>(
-                                                   tlwelvl0[lvl0param::n]);
+    register uint32_t bar = 2 * TFHEpp::lvl1param::n - (tlwe[TFHEpp::lvl0param::k * TFHEpp::lvl0param::n] >> (std::numeric_limits<typename TFHEpp::lvl0param::T>::digits - 1 - TFHEpp::lvl1param::nbit));
     RotatedTestVector<lvl1param>(tlwe, bar, mu);
 
     // accumulate
     for (int i = 0; i < lvl0param::n; i++) {  // n iterations
-        bar = modSwitchFromTorus<lvl1param>(tlwelvl0[i]);
+        constexpr typename TFHEpp::lvl0param::T roundoffset =
+                1ULL << (std::numeric_limits<typename TFHEpp::lvl0param::T>::digits - 2 -
+                        TFHEpp::lvl1param::nbit);
+        bar = modSwitchFromTorus<lvl01param>(tlwelvl0[i]+roundoffset);
         Accumulate<lvl01param>(tlwe, sh_acc_ntt, bar,
                    bk + (i << lvl1param::nbit) * (lvl1param::k+1) * (lvl1param::k+1) * lvl1param::l, ntt);
     }
@@ -335,7 +337,7 @@ __device__ inline void __SampleExtractIndex__(typename P::T* const res, const ty
     }
 }
 
-template <class iksP, class brP, typename brP::targetP::T μ, int casign, int cbsign, typename brP::domainP::T offset>
+template <class iksP, class brP, typename brP::targetP::T μ, int casign, int cbsign, typename iksP::domainP::T offset>
 __device__ inline void __HomGate__(typename brP::targetP::T* const out,
                                    const typename iksP::domainP::T* const in0,
                                    const typename iksP::domainP::T* const in1, const FFP* const bk,
@@ -354,7 +356,7 @@ __device__ inline void __HomGate__(typename brP::targetP::T* const out,
     __threadfence();
 }
 
-template <class brP, typename brP::targetP::T μ, class iksP, int casign, int cbsign, typename brP::domainP::T offset>
+template <class brP, typename brP::targetP::T μ, class iksP, int casign, int cbsign, std::make_signed_t<typename brP::domainP::T> offset>
 __device__ inline void __HomGate__(typename iksP::targetP::T* const out,
                                    const typename brP::domainP::T* const in0,
                                    const typename brP::domainP::T* const in1, const FFP* const bk,
@@ -411,7 +413,7 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<typename brP::targetP>) void __O
     const typename brP::domainP::T* const in1, FFP* bk, const typename iksP::targetP::T* const ksk,
     const CuNTTHandler<> ntt)
 {
-    __HomGate__<brP, μ, iksP, 1, 1, iksP::domainP::μ>(out, in0, in1, bk, ksk, ntt);
+    __HomGate__<brP, μ, iksP, 1, 1, brP::domainP::μ>(out, in0, in1, bk, ksk, ntt);
 }
 
 template<class brP = TFHEpp::lvl01param, typename brP::targetP::T μ = TFHEpp::lvl1param::μ, class iksP = TFHEpp::lvl10param>

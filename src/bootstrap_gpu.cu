@@ -730,7 +730,7 @@ void CMUXNTTkernel(TFHEpp::lvl1param::T* const res, const FFP* const cs,
 void BootstrapTLWE2TRLWE(TFHEpp::lvl1param::T* const out, const TFHEpp::lvl0param::T* const in,
                          const lvl1param::T mu, const cudaStream_t st, const int gpuNum)
 {
-    cudaFuncSetAttribute(__BlindRotate__<TFHEpp::lvl01param>,
+    cudaFuncSetAttribute(__BlindRotateGlobal__<TFHEpp::lvl01param>,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          MEM4HOMGATE<TFHEpp::lvl1param>);
     __BlindRotateGlobal__<TFHEpp::lvl01param><<<1, NUM_THREAD4HOMGATE<TFHEpp::lvl1param>, MEM4HOMGATE<TFHEpp::lvl1param>, st>>>(

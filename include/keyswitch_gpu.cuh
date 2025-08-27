@@ -60,7 +60,7 @@ __device__ inline void KeySwitch(typename P::targetP::T* const lwe,
     }
 }
 
-template <class P, int casign, int cbsign, typename P::domainP::T offset>
+template <class P, int casign, int cbsign, std::make_signed_t<typename P::domainP::T> offset>
 __device__ inline void IdentityKeySwitchPreAdd(typename P::targetP::T* const lwe,
                                  const typename P::domainP::T* const ina,
                                  const typename P::domainP::T* const inb,

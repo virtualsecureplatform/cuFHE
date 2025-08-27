@@ -337,7 +337,7 @@ __device__ inline void __SampleExtractIndex__(typename P::T* const res, const ty
     }
 }
 
-template <class iksP, class brP, typename brP::targetP::T μ, int casign, int cbsign, typename iksP::domainP::T offset>
+template <class iksP, class brP, std::make_signed_t<typename brP::targetP::T> μ, int casign, int cbsign, std::make_signed_t<typename iksP::domainP::T> offset>
 __device__ inline void __HomGate__(typename brP::targetP::T* const out,
                                    const typename iksP::domainP::T* const in0,
                                    const typename iksP::domainP::T* const in1, const FFP* const bk,
@@ -356,7 +356,7 @@ __device__ inline void __HomGate__(typename brP::targetP::T* const out,
     __threadfence();
 }
 
-template <class brP, typename brP::targetP::T μ, class iksP, int casign, int cbsign, std::make_signed_t<typename brP::domainP::T> offset>
+template <class brP, std::make_signed_t<typename brP::targetP::T> μ, class iksP, int casign, int cbsign, std::make_signed_t<typename brP::domainP::T> offset>
 __device__ inline void __HomGate__(typename iksP::targetP::T* const out,
                                    const typename brP::domainP::T* const in0,
                                    const typename brP::domainP::T* const in1, const FFP* const bk,

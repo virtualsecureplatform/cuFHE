@@ -125,7 +125,7 @@ struct Ctxt {
     Ctxt(const Ctxt& that) = delete;
     Ctxt& operator=(const Ctxt& that) = delete;
 
-    TFHEpp::TLWE<P> tlwehost;
+    alignas(64) TFHEpp::TLWE<P> tlwehost;
 
     std::vector<typename P::T*> tlwedevices;
 };

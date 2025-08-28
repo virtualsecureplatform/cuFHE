@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
-project(cuFHE LANGUAGES CUDA CXX)
+project(cuFHE LANGUAGES CUDA CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 find_package(CUDAToolkit REQUIRED)
 set(CMAKE_CUDA_FLAGS "--ptxas-options=-v")
 
-option(USE_RANDEN "Use randen as CSPRNG" ON)
+option(USE_RANDEN "Use randen as CSPRNG" OFF)
 option(USE_80BIT_SECURITY "Use 80bit security parameter(faster)" OFF)
 option(USE_CGGI19 "Use the parameter set proposed in CGGI19" OFF)
 option(USE_CONCRETE "Use the parameter set proposed in CONCRETE" OFF)

@@ -64,12 +64,14 @@ __device__ inline void KeySwitch(typename P::targetP::T* const lwe,
                       (k + 1) * P::basebit)) &
                     mask) - halfbase;
                 constexpr int numbase = 1 << (P::basebit-1);
-                const typename P::targetP::T kskelem = ksk[j * (P::t * numbase *
-                                    (P::targetP::k*P::targetP::n + 1)) +
-                               k * (numbase * (P::targetP::k*P::targetP::n + 1)) +
-                               (abs(val) - 1) * (P::targetP::k*P::targetP::n + 1) + i];
-                if (val > 0) res -= kskelem;
-                else if (val < 0) res += kskelem;
+                if(val!=0){
+                    const typename P::targetP::T kskelem = ksk[j * (P::t * numbase *
+                                        (P::targetP::k*P::targetP::n + 1)) +
+                                k * (numbase * (P::targetP::k*P::targetP::n + 1)) +
+                                (abs(val) - 1) * (P::targetP::k*P::targetP::n + 1) + i];
+                    if (val > 0) res -= kskelem;
+                    else if (val < 0) res += kskelem;
+                }
             }
         }
         lwe[i] = res;

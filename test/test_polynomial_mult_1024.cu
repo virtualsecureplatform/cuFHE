@@ -24,8 +24,12 @@ constexpr uint32_t POLY_SIZE = 1024;
 constexpr uint32_t NUM_TESTS = 100;
 
 // Coefficient bounds
-constexpr uint32_t COEFF_32BIT_MAX = 0xFFFFFFFF;  // 32-bit max
-constexpr uint32_t COEFF_20BIT_MAX = 0xFFFFF;     // 20-bit max
+// NOTE: For NTT with p ≈ 2^60, we need N * max_a * max_b < p
+// With N=1024, max safe product is p/N ≈ 2^50
+// For TFHE, TGSW decomposition produces small coefficients (≤ Bg ≈ 256)
+// so actual TFHE operations stay well within bounds
+constexpr uint32_t COEFF_32BIT_MAX = 0xFFFFFFFF;  // 32-bit max (TRLWE coefficients)
+constexpr uint32_t COEFF_TFHE_MAX = 0x3FFFF;      // 18-bit max (safe: 2^32 * 2^18 * 1024 ≈ p)
 
 // Helper function to generate random polynomial with bounded coefficients
 void generateRandomPolynomial(vector<uint32_t>& poly, uint32_t max_value, default_random_engine& engine) {
@@ -92,7 +96,7 @@ int main() {
     cout << "Polynomial degree: " << POLY_SIZE << endl;
     cout << "Number of tests: " << NUM_TESTS << endl;
     cout << "First polynomial coefficients: up to 32-bit" << endl;
-    cout << "Second polynomial coefficients: up to 20-bit" << endl;
+    cout << "Second polynomial coefficients: up to 18-bit (TFHE-safe)" << endl;
     cout << endl;
     
     // Initialize random number generator
@@ -103,6 +107,7 @@ int main() {
     CuNTTHandler<1024>* ntt_handler = new CuNTTHandler<1024>();
     ntt_handler->Create();
     ntt_handler->CreateConstant();
+    ntt_handler->SetDevicePointers(0);  // Set device pointers for GPU 0
     cudaDeviceSynchronize();
     CuCheckError();
     
@@ -147,8 +152,8 @@ int main() {
         // Generate random polynomials with appropriate bounds
         // First polynomial with up to 32-bit coefficients
         generateRandomPolynomial(poly_a, COEFF_32BIT_MAX, engine);
-        // Second polynomial with up to 20-bit coefficients
-        generateRandomPolynomial(poly_b, COEFF_20BIT_MAX, engine);
+        // Second polynomial with up to 18-bit coefficients (TFHE-safe)
+        generateRandomPolynomial(poly_b, COEFF_TFHE_MAX, engine);
         
         // For initial testing, use smaller values to verify correctness
         if (test < 10) {

@@ -26,6 +26,7 @@
 #include <include/keyswitch_gpu.cuh>
 #include <include/cufhe_gpu.cuh>
 #include <include/details/error_gpu.cuh>
+#include <include/details/utils_gpu.cuh>
 #include <include/ntt_gpu/ntt.cuh>
 #include <limits>
 #include <vector>
@@ -81,6 +82,7 @@ void InitializeNTThandlers(const int gpuNum)
         ntt_handlers.push_back(new CuNTTHandler<>());
         ntt_handlers[i]->Create();
         ntt_handlers[i]->CreateConstant();
+        ntt_handlers[i]->SetDevicePointers(i);  // Set device pointers for this GPU
         cudaDeviceSynchronize();
         CuCheckError();
     }
@@ -192,7 +194,15 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<TFHEpp::lvl1param>) void __CMUXN
                      tid >> (lvl1param::nbit - NTT_THREAD_UNITBIT)
                                 << (lvl1param::nbit - NTT_THREAD_UNITBIT));
     }
-    else {  // must meet 5 sync made by NTTInv
+    else {  // must meet 12 syncs made by NTT (GPU-NTT version)
+        // 1 sync for load + 10 syncs for NTT stages + 1 sync for store
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
         __syncthreads();
         __syncthreads();
         __syncthreads();
@@ -212,7 +222,7 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<TFHEpp::lvl1param>) void __CMUXN
         for (int digit = 1; digit < 2 * lvl1param::l; digit += 1) {
             #pragma unroll
             for(int k = 0; k < lvl1param::k+1; k++)
-            sh_res_ntt[i + k*lvl1param::n] = sh_acc_ntt[digit * lvl1param::n + i] *
+            sh_res_ntt[i + k*lvl1param::n] += sh_acc_ntt[digit * lvl1param::n + i] *
                             tgsw_ntt[(((lvl1param::k+1) * digit + k) << lvl1param::nbit) + i];
         }
     }
@@ -232,7 +242,16 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<TFHEpp::lvl1param>) void __CMUXN
             tid >> (lvl1param::nbit - NTT_THREAD_UNITBIT)
                        << (lvl1param::nbit - NTT_THREAD_UNITBIT));
     }
-    else {  // must meet 5 sync made by NTTInv
+    else {  // must meet 13 syncs made by NTTInvAdd (GPU-NTT version)
+        // 1 sync for load + 10 syncs for INTT stages + 1 sync for n_inverse + 1 sync for convert
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
         __syncthreads();
         __syncthreads();
         __syncthreads();

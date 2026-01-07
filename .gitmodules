@@ -1,3 +1,6 @@
 [submodule "thirdparties/TFHEpp"]
 	path = thirdparties/TFHEpp
 	url = https://github.com/virtualsecureplatform/TFHEpp
+[submodule "thirdparties/GPU-NTT"]
+	path = thirdparties/GPU-NTT
+	url = https://github.com/Alisah-Ozcan/GPU-NTT.git

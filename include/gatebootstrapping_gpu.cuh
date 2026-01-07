@@ -3,6 +3,7 @@
 
 #include <include/cufhe_gpu.cuh>
 #include <include/details/error_gpu.cuh>
+#include <include/details/utils_gpu.cuh>
 #include <include/ntt_gpu/ntt.cuh>
 
 namespace cufhe{
@@ -79,15 +80,21 @@ __device__ inline void PolynomialMulByXaiMinusOneAndDecompositionTRLWE(
             // decomp temp
             temp += decomp_offset + roundoffset;
 #pragma unroll
-            for (int digit = 0; digit < P::l; digit += 1)
+            for (int digit = 0; digit < P::l; digit += 1) {
+                // Extract digit value and subtract half to center around 0
+                // Result is in range [-decomp_half, decomp_half-1] (e.g., [-128, 127])
+                // CRITICAL: Cast to signed int32_t to properly handle negative values
+                // when constructing FFP. Without this, negative values like -128 become
+                // 0xFFFFFF80 (uint32_t wrap) instead of P - 128 (correct modular value).
+                int32_t digit_val = static_cast<int32_t>(
+                    ((temp >>
+                      (std::numeric_limits<typename P::T>::digits -
+                       (digit + 1) * P::Bgbit)) &
+                     decomp_mask) -
+                    decomp_half);
                 dectrlwe[j * P::l * P::n +
-                         digit * P::n + i] =
-                    FFP(typename P::T(
-                        ((temp >>
-                          (std::numeric_limits<typename P::T>::digits -
-                           (digit + 1) * P::Bgbit)) &
-                         decomp_mask) -
-                        decomp_half));
+                         digit * P::n + i] = FFP(digit_val);
+            }
         }
     }
     __syncthreads();  // must
@@ -113,7 +120,15 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
                      tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
                                 << (P::targetP::nbit - NTT_THREAD_UNITBIT));
     }
-    else {  // must meet 5 sync made by NTTInv
+    else {  // must meet 12 syncs made by NTT (GPU-NTT version)
+        // 1 sync for load + 10 syncs for NTT stages + 1 sync for store
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
         __syncthreads();
         __syncthreads();
         __syncthreads();
@@ -152,7 +167,16 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
             tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
                        << (P::targetP::nbit - NTT_THREAD_UNITBIT));
     }
-    else {  // must meet 5 sync made by NTTInv
+    else {  // must meet 13 syncs made by NTTInvAdd (GPU-NTT version)
+        // 1 sync for load + 10 syncs for INTT stages + 1 sync for n_inverse + 1 sync for convert
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
+        __syncthreads();
         __syncthreads();
         __syncthreads();
         __syncthreads();

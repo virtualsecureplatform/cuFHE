@@ -22,7 +22,11 @@
 
 // Include these two files for GPU computing.
 #include <include/cufhe_gpu.cuh>
+#ifndef USE_GPUNTT
 #include <include/ntt_gpu/ntt_ffp.cuh>
+#else
+#include <include/ntt_gpu/ntt_gpuntt.cuh>
+#endif
 using namespace cufhe;
 
 #include <iostream>

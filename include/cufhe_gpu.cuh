@@ -32,7 +32,11 @@
 #include <cuda_device_runtime_api.h>
 #include <cuda_runtime.h>
 
+#ifndef USE_GPUNTT
 #include "ntt_gpu/ntt_ffp.cuh"
+#else
+#include "ntt_gpu/ntt_gpuntt.cuh"
+#endif
 #include "bootstrap_gpu.cuh"
 
 #include <array>
@@ -97,9 +101,7 @@ void ctxtDelete(hT &host, std::vector<dT *> &devices)
  * Parameters *
  *****************************/
 
-// Implementation dependent parameter
-constexpr uint32_t NTT_THREAD_UNITBIT =
-    3;  // How many threads works as one group in NTT algorithm.
+// NUM_THREAD4HOMGATE uses NTT_THREAD_UNITBIT defined at the top of this file
 template<class P = TFHEpp::lvl1param>
 constexpr uint NUM_THREAD4HOMGATE =
     (P::k + 1) * P::l * P::n >> NTT_THREAD_UNITBIT;

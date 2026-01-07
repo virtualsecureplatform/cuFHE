@@ -1,2 +1,7 @@
 SET(ENABLE_TEST OFF)
 add_subdirectory(TFHEpp)
+
+# Add GPU-NTT library
+set(GPUNTT_BUILD_EXAMPLES OFF CACHE BOOL "Build GPU-NTT Examples" FORCE)
+set(GPUNTT_BUILD_BENCHMARKS OFF CACHE BOOL "Build GPU-NTT Benchmarks" FORCE)
+add_subdirectory(GPU-NTT)

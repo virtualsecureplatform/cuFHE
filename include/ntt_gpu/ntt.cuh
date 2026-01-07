@@ -22,12 +22,20 @@
 
 #pragma once
 
+#include <include/details/error_gpu.cuh>
+#include <params.hpp>
+
+#ifdef USE_GPUNTT
+// Use GPU-NTT library based implementation
+// FFP and CuNTTHandler are defined in ntt_gpuntt.cuh
+#include "ntt_gpuntt.cuh"
+
+#else
+// Use original FFP-based implementation
 #include "ntt_ffp.cuh"
 #include "ntt_1024_device.cuh"
 #include "ntt_twiddle.cuh"
 #include <include/details/math.h>
-#include <include/details/error_gpu.cuh>
-#include <params.hpp>
 
 namespace cufhe {
 
@@ -90,3 +98,5 @@ private:
 template class CuNTTHandler<TFHEpp::lvl1param::n>;
 
 } // namespace cufhe
+
+#endif // USE_GPUNTT

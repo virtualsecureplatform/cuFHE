@@ -25,7 +25,11 @@
 #include <params.hpp>
 
 #include "details/allocator_gpu.cuh"
+#ifndef USE_GPUNTT
 #include "ntt_gpu/ntt_ffp.cuh"
+#else
+#include "ntt_gpu/ntt_gpuntt.cuh"
+#endif
 
 namespace cufhe {
 void InitializeNTThandlers(const int gpuNum);

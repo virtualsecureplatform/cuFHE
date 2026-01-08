@@ -115,6 +115,7 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
                                   const CuNTTHandler<> ntt)
 {
     const uint32_t tid = ThisThreadRankInBlock();
+
     constexpr uint32_t N = P::targetP::n;
     constexpr uint32_t NUM_THREADS = N >> NTT_THREAD_UNITBIT;  // 512
 
@@ -171,11 +172,17 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
             }
             __syncthreads();
 
-            // Step 2: Forward NTT on decomposed polynomial (5 syncs inside)
+            // Step 2: Forward NTT on decomposed polynomial - dispatch based on N
             if (tid < NUM_THREADS) {
-                SmallForwardNTT_1024(reinterpret_cast<Data64*>(sh_work), ntt.forward_root_, tid);
+                if constexpr (N == 1024) {
+                    SmallForwardNTT_1024(reinterpret_cast<Data64*>(sh_work), ntt.forward_root_, tid);
+                } else if constexpr (N == 512) {
+                    SmallForwardNTT_512(reinterpret_cast<Data64*>(sh_work), ntt.forward_root_, tid);
+                }
             } else {
-                for (int s = 0; s < 5; s++) __syncthreads();
+                // Sync count: 5 for N=1024, 9 for N=512 (after DEBUG syncs added)
+                constexpr int sync_count = (N == 1024) ? 5 : 9;
+                for (int s = 0; s < sync_count; s++) __syncthreads();
             }
 
             // Step 3: Multiply with BK and accumulate into sh_accum
@@ -211,12 +218,18 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
         }
         __syncthreads();
 
-        // Inverse NTT (6 syncs inside: 1 + 4 + 1)
+        // Inverse NTT - dispatch based on N
         constexpr Data64 half_mod = GPUNTT_DEFAULT_MODULUS / 2;
         if (tid < NUM_THREADS) {
-            SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_work), ntt.inverse_root_, ntt.n_inverse_, tid);
+            if constexpr (N == 1024) {
+                SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_work), ntt.inverse_root_, ntt.n_inverse_, tid);
+            } else if constexpr (N == 512) {
+                SmallInverseNTT_512(reinterpret_cast<Data64*>(sh_work), ntt.inverse_root_, ntt.n_inverse_, tid);
+            }
         } else {
-            for (int s = 0; s < 6; s++) __syncthreads();
+            // Sync count: 6 for N=1024, 10 for N=512 (after DEBUG syncs added)
+            constexpr int sync_count = (N == 1024) ? 6 : 10;
+            for (int s = 0; s < sync_count; s++) __syncthreads();
         }
 
         // Convert and add to trlwe

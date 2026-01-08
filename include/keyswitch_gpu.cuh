@@ -78,6 +78,61 @@ __device__ inline void KeySwitch(typename P::targetP::T* const lwe,
     }
 }
 
+// KeySwitch variant that takes an already-extracted TLWE (not TRLWE)
+// Use this when sample extraction has been done separately via __SampleExtractIndex__
+template <class P>
+__device__ inline void KeySwitchFromTLWE(typename P::targetP::T* const lwe,
+                                 const typename P::domainP::T* const tlwe,
+                                 const typename P::targetP::T* const ksk)
+{
+    constexpr uint domain_digit =
+        std::numeric_limits<typename P::domainP::T>::digits;
+    constexpr uint target_digit =
+        std::numeric_limits<typename P::targetP::T>::digits;
+    constexpr typename P::domainP::T roundoffset =
+        (P::basebit * P::t) < domain_digit
+            ? 1ULL << (domain_digit - (1 + P::basebit * P::t))
+            : 0;
+    constexpr typename P::domainP::T decompoffset = iksoffsetgen<P>();
+    constexpr typename P::domainP::T mask = (1ULL << P::basebit) - 1;
+    constexpr typename P::domainP::T halfbase = 1ULL << (P::basebit - 1);
+    const uint32_t tid = ThisThreadRankInBlock();
+    const uint32_t bdim = ThisBlockSize();
+    for (int i = tid; i <= P::targetP::k*P::targetP::n; i += bdim) {
+        typename P::targetP::T res = 0;
+        if (i == P::targetP::k*P::targetP::n){
+            if constexpr (domain_digit == target_digit)
+                res = tlwe[P::domainP::k * P::domainP::n];
+            else if constexpr (domain_digit > target_digit)
+                res = (tlwe[P::domainP::k * P::domainP::n] + (1ULL << (domain_digit - target_digit - 1))) >> (domain_digit - target_digit);
+            else if constexpr (domain_digit < target_digit)
+                res = static_cast<typename P::targetP::T>(tlwe[P::domainP::k * P::domainP::n]) << (target_digit - domain_digit);
+        }
+        // Direct access to already-extracted TLWE elements (no sample extraction needed)
+        for (int j = 0; j < P::domainP::k*P::domainP::n; j++) {
+            typename P::domainP::T tmp = tlwe[j];
+            tmp += decompoffset + roundoffset;
+            for (int k = 0; k < P::t; k++) {
+                const int32_t val =
+                    ((tmp >>
+                     (std::numeric_limits<typename P::domainP::T>::digits -
+                      (k + 1) * P::basebit)) &
+                    mask) - halfbase;
+                constexpr int numbase = 1 << (P::basebit-1);
+                if(val!=0){
+                    const typename P::targetP::T kskelem = ksk[j * (P::t * numbase *
+                                        (P::targetP::k*P::targetP::n + 1)) +
+                                k * (numbase * (P::targetP::k*P::targetP::n + 1)) +
+                                (abs(val) - 1) * (P::targetP::k*P::targetP::n + 1) + i];
+                    if (val > 0) res -= kskelem;
+                    else if (val < 0) res += kskelem;
+                }
+            }
+        }
+        lwe[i] = res;
+    }
+}
+
 template <class P, int casign, int cbsign, std::make_signed_t<typename P::domainP::T> offset>
 __device__ inline void IdentityKeySwitchPreAdd(typename P::targetP::T* const lwe,
                                  const typename P::domainP::T* const ina,

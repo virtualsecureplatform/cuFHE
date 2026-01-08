@@ -276,6 +276,59 @@ __device__ __forceinline__ void SmallForwardNTT_1024(
 }
 
 /**
+ * Optimized Small Forward NTT for N=512
+ * Uses 256 threads (N/2), each handles 2 elements
+ * Sync pattern: 3 syncs for first stages + 1 final sync = 4 total
+ */
+__device__ __forceinline__ void SmallForwardNTT_512(
+    Data64* sh,
+    const Data64* root_table,
+    int tid)
+{
+    constexpr int N_power = 9;
+
+    int t_2 = N_power - 1;  // 8
+    int t_ = 8;
+    int m = 1;
+    int t = 1 << t_;  // 256
+
+    int in_shared_address = ((tid >> t_) << t_) + tid;
+    int current_root_index;
+
+    // First 3 stages need syncthreads (threads access distant memory)
+    // Stride: 256, 128, 64
+    #pragma unroll
+    for (int lp = 0; lp < 3; lp++) {
+        current_root_index = m + (tid >> t_2);
+        CooleyTukeyUnit(sh[in_shared_address], sh[in_shared_address + t],
+                        root_table[current_root_index]);
+
+        t = t >> 1;
+        t_2 -= 1;
+        t_ -= 1;
+        m <<= 1;
+        in_shared_address = ((tid >> t_) << t_) + tid;
+        __syncthreads();
+    }
+
+    // Last 6 stages - adding sync for debugging
+    // Stride: 32, 16, 8, 4, 2, 1
+    #pragma unroll
+    for (int lp = 0; lp < 6; lp++) {
+        current_root_index = m + (tid >> t_2);
+        CooleyTukeyUnit(sh[in_shared_address], sh[in_shared_address + t],
+                        root_table[current_root_index]);
+
+        t = t >> 1;
+        t_2 -= 1;
+        t_ -= 1;
+        m <<= 1;
+        in_shared_address = ((tid >> t_) << t_) + tid;
+        __syncthreads();  // DEBUG: added sync
+    }
+}
+
+/**
  * Optimized Small Inverse NTT for N=1024
  * Uses 512 threads (N/2), each handles 2 elements
  * Matches HEonGPU's approach for maximum performance
@@ -339,6 +392,63 @@ __device__ __forceinline__ void SmallInverseNTT_1024(
 }
 
 /**
+ * Optimized Small Inverse NTT for N=512
+ * Uses 256 threads (N/2), each handles 2 elements
+ * Sync pattern: 5 syncs total (1 after first 6 stages + 3 for last 3 stages + 1 n_inverse)
+ */
+__device__ __forceinline__ void SmallInverseNTT_512(
+    Data64* sh,
+    const Data64* root_table,
+    Data64 n_inverse,
+    int tid)
+{
+    constexpr int N_power = 9;
+
+    int t_2 = 0;
+    int t_ = 0;
+    int m = 1 << (N_power - 1);  // 256
+    int t = 1;
+
+    int in_shared_address = ((tid >> t_) << t_) + tid;
+    int current_root_index;
+
+    // First 6 stages - adding sync for debugging (stride 1,2,4,8,16,32)
+    #pragma unroll
+    for (int lp = 0; lp < 6; lp++) {
+        current_root_index = m + (tid >> t_2);
+        GentlemanSandeUnit(sh[in_shared_address], sh[in_shared_address + t],
+                           root_table[current_root_index]);
+
+        t = t << 1;
+        t_2 += 1;
+        t_ += 1;
+        m >>= 1;
+        in_shared_address = ((tid >> t_) << t_) + tid;
+        __syncthreads();  // DEBUG: added sync after each stage
+    }
+
+    // Last 3 stages - need sync between each (stride 64,128,256)
+    #pragma unroll
+    for (int lp = 0; lp < 3; lp++) {
+        current_root_index = m + (tid >> t_2);
+        GentlemanSandeUnit(sh[in_shared_address], sh[in_shared_address + t],
+                           root_table[current_root_index]);
+
+        t = t << 1;
+        t_2 += 1;
+        t_ += 1;
+        m >>= 1;
+        in_shared_address = ((tid >> t_) << t_) + tid;
+        __syncthreads();
+    }
+
+    // Multiply by n^{-1} - each thread handles 2 elements
+    sh[tid] = barrett_mult(sh[tid], n_inverse);
+    sh[tid + 256] = barrett_mult(sh[tid + 256], n_inverse);  // N/2 = 256
+    __syncthreads();
+}
+
+/**
  * GPU-NTT Handler optimized for cuFHE
  */
 template <uint32_t length = TFHEpp::lvl1param::n>
@@ -388,12 +498,17 @@ public:
         }
         __syncthreads();
 
-        // Forward NTT in-place (5 syncs inside: 4 + 1)
+        // Forward NTT in-place - dispatch based on N
         if (tid < NUM_THREADS) {
-            SmallForwardNTT_1024(reinterpret_cast<Data64*>(sh_temp), forward_root_, tid);
+            if constexpr (N == 1024) {
+                SmallForwardNTT_1024(reinterpret_cast<Data64*>(sh_temp), forward_root_, tid);
+            } else if constexpr (N == 512) {
+                SmallForwardNTT_512(reinterpret_cast<Data64*>(sh_temp), forward_root_, tid);
+            }
         } else {
-            // Non-participating threads sync 5 times
-            for (int i = 0; i < 5; i++) __syncthreads();
+            // Non-participating threads sync: 5 for N=1024, 4 for N=512
+            constexpr int sync_count = (N == 1024) ? 5 : 4;
+            for (int i = 0; i < sync_count; i++) __syncthreads();
         }
 
         // Copy to output
@@ -424,11 +539,17 @@ public:
         }
         __syncthreads();
 
-        // Inverse NTT in-place (6 syncs: 1 after first 6 stages + 4 for last 4 stages + 1 n_inverse)
+        // Inverse NTT in-place - dispatch based on N
         if (tid < NUM_THREADS) {
-            SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_temp), inverse_root_, n_inverse_, tid);
+            if constexpr (N == 1024) {
+                SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_temp), inverse_root_, n_inverse_, tid);
+            } else if constexpr (N == 512) {
+                SmallInverseNTT_512(reinterpret_cast<Data64*>(sh_temp), inverse_root_, n_inverse_, tid);
+            }
         } else {
-            for (int i = 0; i < 6; i++) __syncthreads();
+            // Non-participating threads sync: 6 for N=1024, 5 for N=512
+            constexpr int sync_count = (N == 1024) ? 6 : 5;
+            for (int i = 0; i < sync_count; i++) __syncthreads();
         }
 
         // Convert back with centered reduction
@@ -445,7 +566,7 @@ public:
         __syncthreads();
     }
 
-    // Inverse NTT with addition (512 threads per NTT)
+    // Inverse NTT with addition (N/2 threads per NTT)
     template <typename T>
     __device__ inline void NTTInvAdd(
         T* const out,
@@ -455,7 +576,7 @@ public:
     {
         const int tid = threadIdx.x - leading_thread;
         constexpr int N = length;
-        constexpr int NUM_THREADS = N >> NTT_THREAD_UNITBIT;  // 512 for N=1024
+        constexpr int NUM_THREADS = N >> NTT_THREAD_UNITBIT;
         constexpr Data64 half_mod = GPUNTT_DEFAULT_MODULUS / 2;
 
         // Load to shared memory - each thread handles 2 elements
@@ -465,11 +586,17 @@ public:
         }
         __syncthreads();
 
-        // Inverse NTT in-place (6 syncs: 1 after first 6 stages + 4 for last 4 stages + 1 n_inverse)
+        // Inverse NTT in-place - dispatch based on N
         if (tid < NUM_THREADS) {
-            SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_temp), inverse_root_, n_inverse_, tid);
+            if constexpr (N == 1024) {
+                SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_temp), inverse_root_, n_inverse_, tid);
+            } else if constexpr (N == 512) {
+                SmallInverseNTT_512(reinterpret_cast<Data64*>(sh_temp), inverse_root_, n_inverse_, tid);
+            }
         } else {
-            for (int i = 0; i < 6; i++) __syncthreads();
+            // Non-participating threads sync: 6 for N=1024, 5 for N=512
+            constexpr int sync_count = (N == 1024) ? 6 : 5;
+            for (int i = 0; i < sync_count; i++) __syncthreads();
         }
 
         // Convert and ADD to output

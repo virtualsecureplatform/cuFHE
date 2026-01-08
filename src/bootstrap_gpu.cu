@@ -99,8 +99,9 @@ void BootstrappingKeyToNTT(const BootstrappingKey<P>& bk,
     for (int i = 0; i < gpuNum; i++) {
         cudaSetDevice(i);
 
-        cudaMalloc((void**)&bk_ntts[i], sizeof(FFP) * P::domainP::n * 2 *
-                                            P::targetP::l * 2 * P::targetP::n);
+        cudaMalloc((void**)&bk_ntts[i], sizeof(FFP) * P::domainP::n *
+                                            (P::targetP::k+1) * P::targetP::l *
+                                            (P::targetP::k+1) * P::targetP::n);
 
         typename P::targetP::T* d_bk;
         cudaMalloc((void**)&d_bk, sizeof(bk));
@@ -380,10 +381,17 @@ __device__ inline void __HomGate__(typename iksP::targetP::T* const out,
                                    const typename iksP::targetP::T* const ksk,
                                    const CuNTTHandler<> ntt)
 {
-    __shared__ typename brP::targetP::T tlwe[(brP::targetP::k+1)*brP::targetP::n]; 
+    __shared__ typename brP::targetP::T trlwe[(brP::targetP::k+1)*brP::targetP::n];
 
-    __BlindRotatePreAdd__<brP, casign,cbsign,offset>(tlwe,in0,in1,bk,ntt);
-    KeySwitch<iksP>(out, tlwe, ksk);
+    __BlindRotatePreAdd__<brP, casign,cbsign,offset>(trlwe,in0,in1,bk,ntt);
+
+    // Extract TLWE from TRLWE at index 0 before key switching
+    // This is required for k > 1 (concrete.hpp uses k=2)
+    __shared__ typename brP::targetP::T tlwe[brP::targetP::k*brP::targetP::n+1];
+    __SampleExtractIndex__<typename brP::targetP, 0>(tlwe, trlwe);
+    __syncthreads();
+
+    KeySwitchFromTLWE<iksP>(out, tlwe, ksk);
     __threadfence();
 }
 
@@ -485,25 +493,34 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<typename brP::targetP>) void __M
     const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, const FFP* const bk,
     const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
 {
-    __shared__ typename brP::targetP::T tlwe1[(brP::targetP::k+1)*brP::targetP::n]; 
-    __shared__ typename brP::targetP::T tlwe0[(brP::targetP::k+1)*brP::targetP::n]; 
+    __shared__ typename brP::targetP::T trlwe1[(brP::targetP::k+1)*brP::targetP::n];
+    __shared__ typename brP::targetP::T trlwe0[(brP::targetP::k+1)*brP::targetP::n];
 
-    __BlindRotatePreAdd__<brP, 1, 1, -brP::domainP::μ>(tlwe1,inc,in1,bk,ntt);
-    __BlindRotatePreAdd__<brP, -1, 1, -brP::domainP::μ>(tlwe0,inc,in0,bk,ntt);
+    __BlindRotatePreAdd__<brP, 1, 1, -brP::domainP::μ>(trlwe1,inc,in1,bk,ntt);
+    __BlindRotatePreAdd__<brP, -1, 1, -brP::domainP::μ>(trlwe0,inc,in0,bk,ntt);
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
     volatile const uint32_t bdim = ThisBlockSize();
+    // Add all (k+1)*n elements of the TRLWE ciphertexts
+    constexpr uint32_t trlwe_size = (brP::targetP::k+1)*brP::targetP::n;
 #pragma unroll
-    for (int i = tid; i <= brP::targetP::n; i += bdim) {
-        tlwe1[i] += tlwe0[i];
-        if (i == brP::targetP::n) {
-            tlwe1[brP::targetP::n] += μ;
-        }
+    for (int i = tid; i < trlwe_size; i += bdim) {
+        trlwe1[i] += trlwe0[i];
+    }
+    // Add μ to b[0] (the constant term of polynomial b)
+    if (tid == 0) {
+        trlwe1[brP::targetP::k*brP::targetP::n] += μ;
     }
 
     __syncthreads();
 
-    KeySwitch<iksP>(out, tlwe1, ksk);
+    // Extract TLWE from TRLWE at index 0 before key switching
+    // This is required for k > 1 (concrete.hpp uses k=2)
+    __shared__ typename brP::targetP::T tlwe[brP::targetP::k*brP::targetP::n+1];
+    __SampleExtractIndex__<typename brP::targetP, 0>(tlwe, trlwe1);
+    __syncthreads();
+
+    KeySwitchFromTLWE<iksP>(out, tlwe, ksk);
     __threadfence();
 }
 
@@ -514,25 +531,34 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<typename brP::targetP>) void __N
     const typename brP::domainP::T* const in1, const typename brP::domainP::T* const in0, const FFP* const bk,
     const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
 {
-    __shared__ typename brP::targetP::T tlwe1[(brP::targetP::k+1)*brP::targetP::n]; 
-    __shared__ typename brP::targetP::T tlwe0[(brP::targetP::k+1)*brP::targetP::n]; 
+    __shared__ typename brP::targetP::T trlwe1[(brP::targetP::k+1)*brP::targetP::n];
+    __shared__ typename brP::targetP::T trlwe0[(brP::targetP::k+1)*brP::targetP::n];
 
-    __BlindRotatePreAdd__<brP, 1, 1, -brP::domainP::μ>(tlwe1,inc,in1,bk,ntt);
-    __BlindRotatePreAdd__<brP, -1, 1, -brP::domainP::μ>(tlwe0,inc,in0,bk,ntt);
+    __BlindRotatePreAdd__<brP, 1, 1, -brP::domainP::μ>(trlwe1,inc,in1,bk,ntt);
+    __BlindRotatePreAdd__<brP, -1, 1, -brP::domainP::μ>(trlwe0,inc,in0,bk,ntt);
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
     volatile const uint32_t bdim = ThisBlockSize();
+    // Negate and add all (k+1)*n elements of the TRLWE ciphertexts
+    constexpr uint32_t trlwe_size = (brP::targetP::k+1)*brP::targetP::n;
 #pragma unroll
-    for (int i = tid; i <= brP::targetP::n; i += bdim) {
-        tlwe1[i] = -tlwe1[i] - tlwe0[i];
-        if (i == brP::targetP::n) {
-            tlwe1[brP::targetP::n] -= μ;
-        }
+    for (int i = tid; i < trlwe_size; i += bdim) {
+        trlwe1[i] = -trlwe1[i] - trlwe0[i];
+    }
+    // Subtract μ from b[0] (the constant term of polynomial b)
+    if (tid == 0) {
+        trlwe1[brP::targetP::k*brP::targetP::n] -= μ;
     }
 
     __syncthreads();
 
-    KeySwitch<iksP>(out, tlwe1, ksk);
+    // Extract TLWE from TRLWE at index 0 before key switching
+    // This is required for k > 1 (concrete.hpp uses k=2)
+    __shared__ typename brP::targetP::T tlwe[brP::targetP::k*brP::targetP::n+1];
+    __SampleExtractIndex__<typename brP::targetP, 0>(tlwe, trlwe1);
+    __syncthreads();
+
+    KeySwitchFromTLWE<iksP>(out, tlwe, ksk);
     __threadfence();
 }
 
@@ -676,12 +702,15 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<typename brP::targetP>) void __M
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
     volatile const uint32_t bdim = ThisBlockSize();
+    // Add TLWE ciphertexts: k*n elements for 'a' parts plus 1 for 'b'
+    constexpr uint32_t tlwe_size = brP::targetP::k*brP::targetP::n + 1;
 #pragma unroll
-    for (int i = tid; i <= brP::targetP::n; i += bdim) {
+    for (int i = tid; i < tlwe_size; i += bdim) {
         out[i] += tlwe1[i];
-        if (i == brP::targetP::n) {
-            out[brP::targetP::n] += μ;
-        }
+    }
+    // Add μ to b (the last element)
+    if (tid == 0) {
+        out[brP::targetP::k*brP::targetP::n] += μ;
     }
     __threadfence();
 }
@@ -693,17 +722,17 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<typename brP::targetP>) void __N
     const typename iksP::domainP::T* const in1, const typename iksP::domainP::T* const in0, const FFP* const bk,
     const typename iksP::targetP::T* const ksk,  const CuNTTHandler<> ntt)
 {
-    __shared__ typename iksP::targetP::T tlwelvl0[iksP::targetP::k*iksP::targetP::n+1]; 
+    __shared__ typename iksP::targetP::T tlwelvl0[iksP::targetP::k*iksP::targetP::n+1];
 
     IdentityKeySwitchPreAdd<iksP, 1, 1, -iksP::domainP::μ>(tlwelvl0, inc, in1, ksk);
     __syncthreads();
-    __shared__ typename brP::targetP::T tlwe1[(brP::targetP::k+1)*brP::targetP::n]; 
+    __shared__ typename brP::targetP::T tlwe1[(brP::targetP::k+1)*brP::targetP::n];
     __BlindRotate__<brP>(tlwe1,tlwelvl0,μ,bk,ntt);
     __SampleExtractIndex__<typename brP::targetP,0>(out, tlwe1);
 
     IdentityKeySwitchPreAdd<iksP, -1, 1, -iksP::domainP::μ>(tlwelvl0, inc, in0, ksk);
     __syncthreads();
-    __shared__ typename brP::targetP::T tlwe0[(brP::targetP::k+1)*brP::targetP::n]; 
+    __shared__ typename brP::targetP::T tlwe0[(brP::targetP::k+1)*brP::targetP::n];
     __BlindRotate__<brP>(tlwe0,tlwelvl0,μ,bk,ntt);
     __SampleExtractIndex__<typename brP::targetP,0>(tlwe1, tlwe0);
 
@@ -712,12 +741,15 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<typename brP::targetP>) void __N
 
     volatile const uint32_t tid = ThisThreadRankInBlock();
     volatile const uint32_t bdim = ThisBlockSize();
+    // Negate and add TLWE ciphertexts: k*n elements for 'a' parts plus 1 for 'b'
+    constexpr uint32_t tlwe_size = brP::targetP::k*brP::targetP::n + 1;
 #pragma unroll
-    for (int i = tid; i <= brP::targetP::n; i += bdim) {
+    for (int i = tid; i < tlwe_size; i += bdim) {
         out[i] = -out[i] - tlwe1[i];
-        if (i == brP::targetP::n) {
-            out[brP::targetP::n] -= μ;
-        }
+    }
+    // Subtract μ from b (the last element)
+    if (tid == 0) {
+        out[brP::targetP::k*brP::targetP::n] -= μ;
     }
     __threadfence();
 }

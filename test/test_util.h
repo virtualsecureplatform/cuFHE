@@ -72,6 +72,7 @@ void Test(string type, Func func, Check check, vector<uint8_t>& pt,
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 
+    int gpu0_failures = 0, gpu1_failures = 0;
     for (int i = 0; i < kNumTests; i++) {
         uint8_t res;
         res = TFHEpp::tlweSymDecrypt<P>(ct[i].tlwehost,
@@ -79,13 +80,19 @@ void Test(string type, Func func, Check check, vector<uint8_t>& pt,
         if (res != pt[i]) {
             correct = false;
             cnt_failures += 1;
+            // Track failures by GPU (streams alternate: even idx -> GPU 0, odd idx -> GPU 1)
+            if ((i % kNumSMs) % 2 == 0)
+                gpu0_failures++;
+            else
+                gpu1_failures++;
             // std::cout << type << " Fail at iteration: " << i << std::endl;
         }
     }
     if (correct)
         cout << "PASS" << endl;
     else
-        cout << "FAIL:\t" << cnt_failures << "/" << kNumTests << endl;
+        cout << "FAIL:\t" << cnt_failures << "/" << kNumTests
+             << " (GPU0: " << gpu0_failures << ", GPU1: " << gpu1_failures << ")" << endl;
 }
 }
 

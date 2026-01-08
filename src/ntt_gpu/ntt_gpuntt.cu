@@ -34,11 +34,32 @@ constexpr Data64 HEONGPU_TFHE_PSI = 1689264667710614ULL;  // Primitive 2048-th r
 // Use HEonGPU's TFHE parameters
 constexpr Data64 ACTIVE_MODULUS = HEONGPU_TFHE_MODULUS;
 
-// For HEonGPU's parameters, psi is already the correct 2N-th root for N=1024
+// Compute the primitive 2N-th root of unity for negacyclic NTT
+// psi_2048 is a primitive 2048-th root of unity mod p
+// For smaller N, we square psi to get the appropriate root
 Data64 ComputePsi(int log_n) {
-    // HEonGPU provides psi directly for N=1024
-    // The psi value 1689264667710614 is a primitive 2048-th root of unity
-    return HEONGPU_TFHE_PSI;
+    // psi_2048^(2048) = 1 mod p, and psi_2048^(1024) = -1 mod p
+    constexpr Data64 psi_2048 = HEONGPU_TFHE_PSI;
+
+    if (log_n == 10) {  // N=1024, need 2048-th root
+        return psi_2048;
+    } else if (log_n == 9) {  // N=512, need 1024-th root
+        // psi_1024 = psi_2048^2 mod p
+        NTTModulus modulus(ACTIVE_MODULUS);
+        return OPERATOR<Data64>::mult(psi_2048, psi_2048, modulus);
+    } else {
+        // General case: compute psi for 2^(log_n+1)-th root
+        // by squaring psi_2048 appropriately
+        NTTModulus modulus(ACTIVE_MODULUS);
+        Data64 psi = psi_2048;
+        // Need to square (11 - log_n - 1) = (10 - log_n) times
+        // Since psi_2048 is 2^11-th root, and we need 2^(log_n+1)-th root
+        int squares_needed = 10 - log_n;
+        for (int i = 0; i < squares_needed; i++) {
+            psi = OPERATOR<Data64>::mult(psi, psi, modulus);
+        }
+        return psi;
+    }
 }
 
 // Generate root of unity tables for given length
@@ -51,10 +72,6 @@ void GenerateRootTables(
 {
     const int n = 1 << log_n;
     NTTModulus modulus(ACTIVE_MODULUS);
-
-    // Debug: print modulus parameters
-    printf("NTTModulus computed: value=%lu, bit=%lu, mu=%lu\n",
-           (unsigned long)modulus.value, (unsigned long)modulus.bit, (unsigned long)modulus.mu);
 
     // Store modulus parameters
     modulus_params.value = modulus.value;

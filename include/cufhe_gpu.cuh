@@ -32,13 +32,8 @@
 #include <cuda_device_runtime_api.h>
 #include <cuda_runtime.h>
 
-#ifndef USE_GPUNTT
-#include "ntt_gpu/ntt_ffp.cuh"
-// Define NTT_THREAD_UNITBIT for original FFP implementation (matches numdataperthreadbit=3)
-constexpr uint32_t NTT_THREAD_UNITBIT = 3;
-#else
+// Use optimized HEonGPU-style NTT implementation
 #include "ntt_gpu/ntt_gpuntt.cuh"
-#endif
 #include "bootstrap_gpu.cuh"
 
 #include <array>

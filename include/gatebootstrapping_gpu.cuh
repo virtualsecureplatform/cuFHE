@@ -121,8 +121,7 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
                                 << (P::targetP::nbit - NTT_THREAD_UNITBIT));
     }
     else {
-#ifdef USE_GPUNTT
-        // GPU-NTT: 12 syncs (1 load + 10 NTT stages + 1 store)
+        // Optimized NTT: 12 syncs (1 load + 10 NTT stages + 1 store)
         __syncthreads();
         __syncthreads();
         __syncthreads();
@@ -135,14 +134,6 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
         __syncthreads();
         __syncthreads();
         __syncthreads();
-#else
-        // Original FFP NTT: 5 syncs (1 + 3 core + 1)
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-#endif
     }
     __syncthreads();
 
@@ -177,8 +168,7 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
                        << (P::targetP::nbit - NTT_THREAD_UNITBIT));
     }
     else {
-#ifdef USE_GPUNTT
-        // GPU-NTT: 13 syncs (1 load + 10 INTT stages + 1 n_inverse + 1 convert)
+        // Optimized INTT: 13 syncs (1 load + 11 INTT stages + 1 convert)
         __syncthreads();
         __syncthreads();
         __syncthreads();
@@ -192,14 +182,6 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
         __syncthreads();
         __syncthreads();
         __syncthreads();
-#else
-        // Original FFP NTT: 5 syncs (1 + 3 core + 1)
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-#endif
     }
     __syncthreads();  // must
 }

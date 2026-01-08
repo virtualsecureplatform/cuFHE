@@ -211,12 +211,12 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
         }
         __syncthreads();
 
-        // Inverse NTT (11 syncs inside)
+        // Inverse NTT (6 syncs inside: 1 + 4 + 1)
         constexpr Data64 half_mod = GPUNTT_DEFAULT_MODULUS / 2;
         if (tid < NUM_THREADS) {
             SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_work), ntt.inverse_root_, ntt.n_inverse_, tid);
         } else {
-            for (int s = 0; s < 11; s++) __syncthreads();
+            for (int s = 0; s < 6; s++) __syncthreads();
         }
 
         // Convert and add to trlwe

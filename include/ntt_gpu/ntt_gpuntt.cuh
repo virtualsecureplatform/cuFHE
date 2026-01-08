@@ -279,7 +279,12 @@ __device__ __forceinline__ void SmallForwardNTT_1024(
  * Optimized Small Inverse NTT for N=1024
  * Uses 512 threads (N/2), each handles 2 elements
  * Matches HEonGPU's approach for maximum performance
- * Sync pattern: 10 syncs for stages + 1 for n_inverse = 11 total
+ *
+ * Optimized sync pattern: 6 syncs total (down from 11)
+ * - First 6 stages (stride 1-32): warp-local, no inter-stage sync needed
+ * - One sync after stage 5
+ * - Last 4 stages (stride 64-512): need inter-stage sync
+ * - Final sync for n_inverse
  */
 __device__ __forceinline__ void SmallInverseNTT_1024(
     Data64* sh,
@@ -297,9 +302,24 @@ __device__ __forceinline__ void SmallInverseNTT_1024(
     int in_shared_address = ((tid >> t_) << t_) + tid;
     int current_root_index;
 
-    // All 10 stages of inverse NTT - each needs sync
+    // First 6 stages - warp-local (stride 1,2,4,8,16,32), no sync between stages
     #pragma unroll
-    for (int lp = 0; lp < N_power; lp++) {
+    for (int lp = 0; lp < 6; lp++) {
+        current_root_index = m + (tid >> t_2);
+        GentlemanSandeUnit(sh[in_shared_address], sh[in_shared_address + t],
+                           root_table[current_root_index]);
+
+        t = t << 1;
+        t_2 += 1;
+        t_ += 1;
+        m >>= 1;
+        in_shared_address = ((tid >> t_) << t_) + tid;
+    }
+    __syncthreads();  // Sync after first 6 stages
+
+    // Last 4 stages - need sync between each (stride 64,128,256,512)
+    #pragma unroll
+    for (int lp = 0; lp < 4; lp++) {
         current_root_index = m + (tid >> t_2);
         GentlemanSandeUnit(sh[in_shared_address], sh[in_shared_address + t],
                            root_table[current_root_index]);
@@ -404,11 +424,11 @@ public:
         }
         __syncthreads();
 
-        // Inverse NTT in-place (11 syncs: 10 stages + 1 n_inverse)
+        // Inverse NTT in-place (6 syncs: 1 after first 6 stages + 4 for last 4 stages + 1 n_inverse)
         if (tid < NUM_THREADS) {
             SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_temp), inverse_root_, n_inverse_, tid);
         } else {
-            for (int i = 0; i < 11; i++) __syncthreads();
+            for (int i = 0; i < 6; i++) __syncthreads();
         }
 
         // Convert back with centered reduction
@@ -445,11 +465,11 @@ public:
         }
         __syncthreads();
 
-        // Inverse NTT in-place (11 syncs: 10 stages + 1 n_inverse)
+        // Inverse NTT in-place (6 syncs: 1 after first 6 stages + 4 for last 4 stages + 1 n_inverse)
         if (tid < NUM_THREADS) {
             SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_temp), inverse_root_, n_inverse_, tid);
         } else {
-            for (int i = 0; i < 11; i++) __syncthreads();
+            for (int i = 0; i < 6; i++) __syncthreads();
         }
 
         // Convert and ADD to output

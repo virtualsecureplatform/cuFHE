@@ -245,13 +245,8 @@ __global__ __launch_bounds__(NUM_THREAD4HOMGATE<TFHEpp::lvl1param>) void __CMUXN
             tid >> (lvl1param::nbit - NTT_THREAD_UNITBIT)
                        << (lvl1param::nbit - NTT_THREAD_UNITBIT));
     }
-    else {  // must meet 13 syncs made by NTTInvAdd (GPU-NTT version)
-        // 1 sync for load + 10 syncs for INTT stages + 1 sync for n_inverse + 1 sync for convert
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
+    else {  // must meet 8 syncs made by NTTInvAdd (optimized GPU-NTT version)
+        // 1 sync for load + 6 syncs for INTT (1+4+1) + 1 sync for convert
         __syncthreads();
         __syncthreads();
         __syncthreads();

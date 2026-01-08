@@ -22,9 +22,8 @@ void Test(string type, Func func, Check check, vector<uint8_t>& pt,
     uniform_int_distribution<uint32_t> binary(0, 1);
     for (int i = 0; i < 4 * kNumTests; i++) {
         pt[i] = binary(engine) > 0;
-        ct[i].tlwehost = TFHEpp::tlweSymEncrypt<P>(
-            pt[i] ? P::μ : -P::μ,
-            P::α, sk.key.get<P>());
+        TFHEpp::tlweSymEncrypt<P>(ct[i].tlwehost,
+            pt[i] ? P::μ : -P::μ, sk.key.get<P>());
     }
 
     float et;

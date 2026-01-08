@@ -42,8 +42,8 @@ void Initialize() { InitializeNTThandlers(_gpuNum); }
 void Initialize(const TFHEpp::EvalKey& ek)
 {
     InitializeNTThandlers(_gpuNum);
-    BootstrappingKeyToNTT<TFHEpp::lvl01param>(*ek.bklvl01, _gpuNum);
-    KeySwitchingKeyToDevice(*ek.iksklvl10, _gpuNum);
+    BootstrappingKeyToNTT<TFHEpp::lvl01param>(ek.getbk<TFHEpp::lvl01param>(), _gpuNum);
+    KeySwitchingKeyToDevice(ek.getiksk<TFHEpp::lvl10param>(), _gpuNum);
 }
 
 void CleanUp()

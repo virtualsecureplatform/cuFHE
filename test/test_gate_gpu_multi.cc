@@ -51,7 +51,7 @@ int main()
     using iksP = TFHEpp::lvl10param;
 
     TFHEpp::SecretKey* sk = new TFHEpp::SecretKey();
-    TFHEpp::EvalKey ek;
+    TFHEpp::EvalKey ek(*sk);
     ek.emplacebk<brP>(*sk);
     ek.emplaceiksk<iksP>(*sk);
 

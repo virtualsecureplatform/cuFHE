@@ -83,15 +83,15 @@ int main()
     for (int i = 0; i < kNumTests; i++) {
         TFHEpp::Polynomial<TFHEpp::lvl1param> ply = {};
         ply[0] = ps[i];
-        cs[i] = TFHEpp::trgswSymEncrypt<TFHEpp::lvl1param>(ply, TFHEpp::lvl1param::α,
-                                                   sk->key.lvl1);
+        TFHEpp::trgswSymEncrypt<TFHEpp::lvl1param>(cs[i], ply,
+                                                   sk->key.get<TFHEpp::lvl1param>());
     }
     for (int i = 0; i < kNumTests; i++)
-        c1[i].trlwehost =
-            TFHEpp::trlweSymEncrypt<TFHEpp::lvl1param>(pmu1[i], TFHEpp::lvl1param::α, sk->key.lvl1);
+        TFHEpp::trlweSymEncrypt<TFHEpp::lvl1param>(c1[i].trlwehost, pmu1[i],
+            sk->key.get<TFHEpp::lvl1param>());
     for (int i = 0; i < kNumTests; i++)
-        c0[i].trlwehost =
-            TFHEpp::trlweSymEncrypt<TFHEpp::lvl1param>(pmu0[i], TFHEpp::lvl1param::α, sk->key.lvl1);
+        TFHEpp::trlweSymEncrypt<TFHEpp::lvl1param>(c0[i].trlwehost, pmu0[i],
+            sk->key.get<TFHEpp::lvl1param>());
 
     std::cout << "Number of tests:\t" << kNumTests << std::endl;
 
@@ -130,7 +130,7 @@ int main()
     int count = 0;
     for (int test = 0; test < kNumTests; test++) {
         pres = TFHEpp::trlweSymDecrypt<TFHEpp::lvl1param>(cres[test].trlwehost,
-                                                          sk->key.lvl1);
+                                                          sk->key.get<TFHEpp::lvl1param>());
         for (int i = 0; i < TFHEpp::lvl1param::n; i++)
             count +=
                 (pres[i] == ((ps[test] > 0) ? p1[test][i] : p0[test][i]) > 0)

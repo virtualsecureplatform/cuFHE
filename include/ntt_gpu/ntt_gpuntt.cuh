@@ -40,9 +40,9 @@ constexpr Data64 GPUNTT_MU = 9223372036854530040ULL;
 constexpr Data64 GPUNTT_BIT = 61;
 
 // Thread configuration for NTT
-// N/8 threads, each handles 8 elements (e.g., 128 threads for N=1024)
-// This allows cuFHE to run (k+1)*l NTTs in parallel within the 1024 thread limit
-constexpr uint32_t NTT_THREAD_UNITBIT = 3;
+// N/2 threads, each handles 2 elements (e.g., 512 threads for N=1024)
+// This matches HEonGPU's sequential NTT approach for maximum performance
+constexpr uint32_t NTT_THREAD_UNITBIT = 1;
 
 /**
  * @class FFP
@@ -225,8 +225,9 @@ __device__ inline FFP& operator*=(FFP& a, const FFP& b) { a = a * b; return a; }
 
 /**
  * Optimized Small Forward NTT for N=1024
- * Uses 128 threads, each handles 4 butterflies per stage (8 elements total)
- * Optimized sync pattern: first stages need sync, later stages are warp-local
+ * Uses 512 threads (N/2), each handles 2 elements
+ * Matches HEonGPU's approach for maximum performance
+ * Sync pattern: 4 syncs for first stages + 1 final sync = 5 total
  */
 __device__ __forceinline__ void SmallForwardNTT_1024(
     Data64* sh,
@@ -234,39 +235,51 @@ __device__ __forceinline__ void SmallForwardNTT_1024(
     int tid)
 {
     constexpr int N_power = 10;
-    constexpr int NUM_THREADS = 128;
-    constexpr int BUTTERFLIES_PER_THREAD = 4;  // 512 total butterflies / 128 threads
 
     int t_2 = N_power - 1;
     int t_ = 9;
     int m = 1;
     int t = 1 << t_;
 
-    // All 10 stages of forward NTT
-    #pragma unroll
-    for (int lp = 0; lp < N_power; lp++) {
-        // Each thread handles BUTTERFLIES_PER_THREAD butterflies
-        #pragma unroll
-        for (int b = 0; b < BUTTERFLIES_PER_THREAD; b++) {
-            int virtual_tid = tid + b * NUM_THREADS;
-            int in_shared_address = ((virtual_tid >> t_) << t_) + virtual_tid;
-            int current_root_index = m + (virtual_tid >> t_2);
+    int in_shared_address = ((tid >> t_) << t_) + tid;
+    int current_root_index;
 
-            CooleyTukeyUnit(sh[in_shared_address], sh[in_shared_address + t],
-                            root_table[current_root_index]);
-        }
+    // First 4 stages need syncthreads (threads access distant memory)
+    #pragma unroll
+    for (int lp = 0; lp < 4; lp++) {
+        current_root_index = m + (tid >> t_2);
+        CooleyTukeyUnit(sh[in_shared_address], sh[in_shared_address + t],
+                        root_table[current_root_index]);
 
         t = t >> 1;
         t_2 -= 1;
         t_ -= 1;
         m <<= 1;
+        in_shared_address = ((tid >> t_) << t_) + tid;
         __syncthreads();
     }
+
+    // Last 6 stages - warp-local, no sync needed between stages
+    #pragma unroll
+    for (int lp = 0; lp < 6; lp++) {
+        current_root_index = m + (tid >> t_2);
+        CooleyTukeyUnit(sh[in_shared_address], sh[in_shared_address + t],
+                        root_table[current_root_index]);
+
+        t = t >> 1;
+        t_2 -= 1;
+        t_ -= 1;
+        m <<= 1;
+        in_shared_address = ((tid >> t_) << t_) + tid;
+    }
+    __syncthreads();
 }
 
 /**
  * Optimized Small Inverse NTT for N=1024
- * Uses 128 threads, each handles 4 butterflies per stage (8 elements total)
+ * Uses 512 threads (N/2), each handles 2 elements
+ * Matches HEonGPU's approach for maximum performance
+ * Sync pattern: 10 syncs for stages + 1 for n_inverse = 11 total
  */
 __device__ __forceinline__ void SmallInverseNTT_1024(
     Data64* sh,
@@ -275,43 +288,33 @@ __device__ __forceinline__ void SmallInverseNTT_1024(
     int tid)
 {
     constexpr int N_power = 10;
-    constexpr int N = 1024;
-    constexpr int NUM_THREADS = 128;
-    constexpr int BUTTERFLIES_PER_THREAD = 4;
-    constexpr int ELEMENTS_PER_THREAD = 8;
 
     int t_2 = 0;
     int t_ = 0;
     int m = 1 << (N_power - 1);
     int t = 1;
 
-    // All 10 stages of inverse NTT
+    int in_shared_address = ((tid >> t_) << t_) + tid;
+    int current_root_index;
+
+    // All 10 stages of inverse NTT - each needs sync
     #pragma unroll
     for (int lp = 0; lp < N_power; lp++) {
-        // Each thread handles BUTTERFLIES_PER_THREAD butterflies
-        #pragma unroll
-        for (int b = 0; b < BUTTERFLIES_PER_THREAD; b++) {
-            int virtual_tid = tid + b * NUM_THREADS;
-            int in_shared_address = ((virtual_tid >> t_) << t_) + virtual_tid;
-            int current_root_index = m + (virtual_tid >> t_2);
-
-            GentlemanSandeUnit(sh[in_shared_address], sh[in_shared_address + t],
-                               root_table[current_root_index]);
-        }
+        current_root_index = m + (tid >> t_2);
+        GentlemanSandeUnit(sh[in_shared_address], sh[in_shared_address + t],
+                           root_table[current_root_index]);
 
         t = t << 1;
         t_2 += 1;
         t_ += 1;
         m >>= 1;
+        in_shared_address = ((tid >> t_) << t_) + tid;
         __syncthreads();
     }
 
-    // Multiply by n^{-1} - each thread handles 8 elements
-    #pragma unroll
-    for (int e = 0; e < ELEMENTS_PER_THREAD; e++) {
-        int idx = tid + e * NUM_THREADS;
-        sh[idx] = barrett_mult(sh[idx], n_inverse);
-    }
+    // Multiply by n^{-1} - each thread handles 2 elements
+    sh[tid] = barrett_mult(sh[tid], n_inverse);
+    sh[tid + 512] = barrett_mult(sh[tid + 512], n_inverse);
     __syncthreads();
 }
 
@@ -341,7 +344,7 @@ public:
     __host__ static void Destroy();
     __host__ void SetDevicePointers(int device_id);
 
-    // Forward NTT (128 threads per NTT, each handles 8 elements)
+    // Forward NTT (512 threads per NTT, each handles 2 elements)
     template <typename T>
     __device__ inline void NTT(
         FFP* const out,
@@ -351,43 +354,37 @@ public:
     {
         const int tid = threadIdx.x - leading_thread;
         constexpr int N = length;
-        constexpr int NUM_THREADS = N >> NTT_THREAD_UNITBIT;  // 128 for N=1024
-        constexpr int ELEMENTS_PER_THREAD = N / NUM_THREADS;  // 8
+        constexpr int NUM_THREADS = N >> NTT_THREAD_UNITBIT;  // 512 for N=1024
 
-        // Load to shared memory
+        // Load to shared memory - each thread handles 2 elements
         if (tid < NUM_THREADS) {
-            #pragma unroll
-            for (int e = 0; e < ELEMENTS_PER_THREAD; e++) {
-                int idx = tid + e * NUM_THREADS;
-                if constexpr (std::is_same_v<T, FFP>) {
-                    sh_temp[idx].val() = in[idx].val();
-                } else {
-                    sh_temp[idx] = FFP(in[idx]);
-                }
+            if constexpr (std::is_same_v<T, FFP>) {
+                sh_temp[tid].val() = in[tid].val();
+                sh_temp[tid + NUM_THREADS].val() = in[tid + NUM_THREADS].val();
+            } else {
+                sh_temp[tid] = FFP(in[tid]);
+                sh_temp[tid + NUM_THREADS] = FFP(in[tid + NUM_THREADS]);
             }
         }
         __syncthreads();
 
-        // Forward NTT in-place (10 syncs inside)
+        // Forward NTT in-place (5 syncs inside: 4 + 1)
         if (tid < NUM_THREADS) {
             SmallForwardNTT_1024(reinterpret_cast<Data64*>(sh_temp), forward_root_, tid);
         } else {
-            // Non-participating threads sync 10 times (one per NTT stage)
-            for (int i = 0; i < 10; i++) __syncthreads();
+            // Non-participating threads sync 5 times
+            for (int i = 0; i < 5; i++) __syncthreads();
         }
 
         // Copy to output
         if (tid < NUM_THREADS) {
-            #pragma unroll
-            for (int e = 0; e < ELEMENTS_PER_THREAD; e++) {
-                int idx = tid + e * NUM_THREADS;
-                out[idx] = sh_temp[idx];
-            }
+            out[tid] = sh_temp[tid];
+            out[tid + NUM_THREADS] = sh_temp[tid + NUM_THREADS];
         }
         __syncthreads();
     }
 
-    // Inverse NTT (128 threads per NTT, each handles 8 elements)
+    // Inverse NTT (512 threads per NTT, each handles 2 elements)
     template <typename T>
     __device__ inline void NTTInv(
         T* const out,
@@ -397,17 +394,13 @@ public:
     {
         const int tid = threadIdx.x - leading_thread;
         constexpr int N = length;
-        constexpr int NUM_THREADS = N >> NTT_THREAD_UNITBIT;
-        constexpr int ELEMENTS_PER_THREAD = N / NUM_THREADS;
+        constexpr int NUM_THREADS = N >> NTT_THREAD_UNITBIT;  // 512 for N=1024
         constexpr Data64 half_mod = GPUNTT_DEFAULT_MODULUS / 2;
 
-        // Load to shared memory
+        // Load to shared memory - each thread handles 2 elements
         if (tid < NUM_THREADS) {
-            #pragma unroll
-            for (int e = 0; e < ELEMENTS_PER_THREAD; e++) {
-                int idx = tid + e * NUM_THREADS;
-                sh_temp[idx] = in[idx];
-            }
+            sh_temp[tid] = in[tid];
+            sh_temp[tid + NUM_THREADS] = in[tid + NUM_THREADS];
         }
         __syncthreads();
 
@@ -420,19 +413,19 @@ public:
 
         // Convert back with centered reduction
         if (tid < NUM_THREADS) {
-            #pragma unroll
-            for (int e = 0; e < ELEMENTS_PER_THREAD; e++) {
-                int idx = tid + e * NUM_THREADS;
-                Data64 val = sh_temp[idx].val();
-                out[idx] = (val > half_mod)
-                    ? static_cast<T>(static_cast<int64_t>(val) - static_cast<int64_t>(GPUNTT_DEFAULT_MODULUS))
-                    : static_cast<T>(val);
-            }
+            Data64 val0 = sh_temp[tid].val();
+            Data64 val1 = sh_temp[tid + NUM_THREADS].val();
+            out[tid] = (val0 > half_mod)
+                ? static_cast<T>(static_cast<int64_t>(val0) - static_cast<int64_t>(GPUNTT_DEFAULT_MODULUS))
+                : static_cast<T>(val0);
+            out[tid + NUM_THREADS] = (val1 > half_mod)
+                ? static_cast<T>(static_cast<int64_t>(val1) - static_cast<int64_t>(GPUNTT_DEFAULT_MODULUS))
+                : static_cast<T>(val1);
         }
         __syncthreads();
     }
 
-    // Inverse NTT with addition (128 threads per NTT)
+    // Inverse NTT with addition (512 threads per NTT)
     template <typename T>
     __device__ inline void NTTInvAdd(
         T* const out,
@@ -442,17 +435,13 @@ public:
     {
         const int tid = threadIdx.x - leading_thread;
         constexpr int N = length;
-        constexpr int NUM_THREADS = N >> NTT_THREAD_UNITBIT;
-        constexpr int ELEMENTS_PER_THREAD = N / NUM_THREADS;
+        constexpr int NUM_THREADS = N >> NTT_THREAD_UNITBIT;  // 512 for N=1024
         constexpr Data64 half_mod = GPUNTT_DEFAULT_MODULUS / 2;
 
-        // Load to shared memory
+        // Load to shared memory - each thread handles 2 elements
         if (tid < NUM_THREADS) {
-            #pragma unroll
-            for (int e = 0; e < ELEMENTS_PER_THREAD; e++) {
-                int idx = tid + e * NUM_THREADS;
-                sh_temp[idx] = in[idx];
-            }
+            sh_temp[tid] = in[tid];
+            sh_temp[tid + NUM_THREADS] = in[tid + NUM_THREADS];
         }
         __syncthreads();
 
@@ -465,15 +454,16 @@ public:
 
         // Convert and ADD to output
         if (tid < NUM_THREADS) {
-            #pragma unroll
-            for (int e = 0; e < ELEMENTS_PER_THREAD; e++) {
-                int idx = tid + e * NUM_THREADS;
-                Data64 val = sh_temp[idx].val();
-                T conv = (val > half_mod)
-                    ? static_cast<T>(static_cast<int64_t>(val) - static_cast<int64_t>(GPUNTT_DEFAULT_MODULUS))
-                    : static_cast<T>(val);
-                out[idx] += conv;
-            }
+            Data64 val0 = sh_temp[tid].val();
+            Data64 val1 = sh_temp[tid + NUM_THREADS].val();
+            T conv0 = (val0 > half_mod)
+                ? static_cast<T>(static_cast<int64_t>(val0) - static_cast<int64_t>(GPUNTT_DEFAULT_MODULUS))
+                : static_cast<T>(val0);
+            T conv1 = (val1 > half_mod)
+                ? static_cast<T>(static_cast<int64_t>(val1) - static_cast<int64_t>(GPUNTT_DEFAULT_MODULUS))
+                : static_cast<T>(val1);
+            out[tid] += conv0;
+            out[tid + NUM_THREADS] += conv1;
         }
         __syncthreads();
     }

@@ -4,7 +4,7 @@
 #include <include/cufhe_gpu.cuh>
 #include <include/details/error_gpu.cuh>
 #include <include/details/utils_gpu.cuh>
-#include <include/ntt_gpu/ntt.cuh>
+#include <include/ntt_gpu/ntt_gpuntt.cuh>
 
 namespace cufhe{
 
@@ -100,6 +100,14 @@ __device__ inline void PolynomialMulByXaiMinusOneAndDecompositionTRLWE(
     __syncthreads();  // must
 }
 
+/**
+ * Sequential NTT Accumulate function (HEonGPU-style)
+ * Uses 512 threads, processes NTTs one at a time for maximum efficiency
+ *
+ * Shared memory layout:
+ * - sh_acc_ntt[0..N-1]: Working buffer for NTT operations (8KB)
+ * - sh_acc_ntt[N..3N-1]: Accumulated products in NTT domain (16KB for k+1=2 outputs)
+ */
 template<class P>
 __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* const sh_acc_ntt,
                                   const uint32_t a_bar,
@@ -107,83 +115,124 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
                                   const CuNTTHandler<> ntt)
 {
     const uint32_t tid = ThisThreadRankInBlock();
-    const uint32_t bdim = ThisBlockSize();
+    constexpr uint32_t N = P::targetP::n;
+    constexpr uint32_t NUM_THREADS = N >> NTT_THREAD_UNITBIT;  // 512
 
-    PolynomialMulByXaiMinusOneAndDecompositionTRLWE<typename P::targetP>(sh_acc_ntt, trlwe, a_bar);
+    // Aliases for clarity
+    FFP* const sh_work = &sh_acc_ntt[0];              // Working buffer for NTT
+    FFP* const sh_accum = &sh_acc_ntt[N];             // Accumulated results (k+1 polynomials)
 
-    // (k+1)l NTTs
-    // Input/output/buffer use the same shared memory location.
-    if (tid < (P::targetP::k+1) * P::targetP::l * (P::targetP::n >> NTT_THREAD_UNITBIT)) {
-        FFP* tar = &sh_acc_ntt[tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
-                                          << P::targetP::nbit];
-        ntt.NTT<FFP>(tar, tar, tar,
-                     tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
-                                << (P::targetP::nbit - NTT_THREAD_UNITBIT));
-    }
-    else {
-        // Optimized NTT: 12 syncs (1 load + 10 NTT stages + 1 store)
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-    }
-    __syncthreads();
-
-// Multiply with bootstrapping key in global memory.
-#pragma unroll
-    for (int i = tid; i < P::targetP::n; i += bdim) {
-        sh_acc_ntt[(P::targetP::k + 1) * P::targetP::l * P::targetP::n + i] =
-            sh_acc_ntt[0 * P::targetP::n + i] *
-            tgsw_ntt[(((P::targetP::k + 1) * 0 + 1) << P::targetP::nbit) + i];
-        sh_acc_ntt[i] = sh_acc_ntt[0 * P::targetP::n + i] *
-                        tgsw_ntt[(((P::targetP::k + 1) * 0 + 0) << P::targetP::nbit) + i];
-#pragma unroll
-        for (int digit = 1; digit < (P::targetP::k + 1) * P::targetP::l; digit += 1) {
-            sh_acc_ntt[i] += sh_acc_ntt[digit * P::targetP::n + i] *
-                             tgsw_ntt[(((P::targetP::k + 1) * digit + 0) << P::targetP::nbit) + i];
-            sh_acc_ntt[(P::targetP::k + 1) * P::targetP::l * P::targetP::n + i] +=
-                sh_acc_ntt[digit * P::targetP::n + i] *
-                tgsw_ntt[(((P::targetP::k + 1) * digit + 1) << P::targetP::nbit) + i];
+    // Initialize accumulated results to zero
+    if (tid < NUM_THREADS) {
+        for (int k_idx = 0; k_idx <= P::targetP::k; k_idx++) {
+            sh_accum[k_idx * N + tid] = FFP(static_cast<Data64>(0));
+            sh_accum[k_idx * N + tid + NUM_THREADS] = FFP(static_cast<Data64>(0));
         }
     }
     __syncthreads();
 
-    // k+1 NTTInvs and add acc
-    if (tid < (P::targetP::k + 1) * (P::targetP::n >> NTT_THREAD_UNITBIT)) {
-        FFP* src = &sh_acc_ntt[(tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)) *
-                               (P::targetP::k + 1) * P::targetP::l * P::targetP::n];
-        ntt.NTTInvAdd<typename P::targetP::T>(
-            &trlwe[tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
-                              << P::targetP::nbit],
-            src, src,
-            tid >> (P::targetP::nbit - NTT_THREAD_UNITBIT)
-                       << (P::targetP::nbit - NTT_THREAD_UNITBIT));
+    // Decomposition constants
+    constexpr uint32_t decomp_mask = (1 << P::targetP::Bgbit) - 1;
+    constexpr int32_t decomp_half = 1 << (P::targetP::Bgbit - 1);
+    constexpr uint32_t decomp_offset = offsetgen<typename P::targetP>();
+    constexpr typename P::targetP::T roundoffset =
+        1ULL << (std::numeric_limits<typename P::targetP::T>::digits -
+                 P::targetP::l * P::targetP::Bgbit - 1);
+
+    // Process each TRLWE component (k+1 components) and each decomposition level (l levels)
+    for (int j = 0; j <= P::targetP::k; j++) {
+        for (int digit = 0; digit < P::targetP::l; digit++) {
+            // Step 1: Compute decomposed polynomial for component j, digit
+            // MulByXaiMinusOne and decomposition - each thread handles 2 elements
+            if (tid < NUM_THREADS) {
+                #pragma unroll
+                for (int e = 0; e < 2; e++) {
+                    int i = tid + e * NUM_THREADS;
+
+                    // PolynomialMulByXaiMinus
+                    typename P::targetP::T temp =
+                        trlwe[j * N + ((i - a_bar) & (N - 1))];
+                    temp = ((i < (a_bar & (N - 1)) ^
+                             (a_bar >> P::targetP::nbit)))
+                               ? -temp
+                               : temp;
+                    temp -= trlwe[j * N + i];
+
+                    // Decomposition for this digit
+                    temp += decomp_offset + roundoffset;
+                    int32_t digit_val = static_cast<int32_t>(
+                        ((temp >>
+                          (std::numeric_limits<typename P::targetP::T>::digits -
+                           (digit + 1) * P::targetP::Bgbit)) &
+                         decomp_mask) -
+                        decomp_half);
+                    sh_work[i] = FFP(digit_val);
+                }
+            }
+            __syncthreads();
+
+            // Step 2: Forward NTT on decomposed polynomial (5 syncs inside)
+            if (tid < NUM_THREADS) {
+                SmallForwardNTT_1024(reinterpret_cast<Data64*>(sh_work), ntt.forward_root_, tid);
+            } else {
+                for (int s = 0; s < 5; s++) __syncthreads();
+            }
+
+            // Step 3: Multiply with BK and accumulate into sh_accum
+            // tgsw_ntt layout: [(k+1)*l output components] x [N]
+            // For digit d from component j: access tgsw_ntt[((k+1)*digit_linear + output_k) * N + i]
+            // where digit_linear = j * l + digit
+            int digit_linear = j * P::targetP::l + digit;
+            if (tid < NUM_THREADS) {
+                #pragma unroll
+                for (int e = 0; e < 2; e++) {
+                    int i = tid + e * NUM_THREADS;
+                    FFP ntt_val = sh_work[i];
+
+                    // Accumulate into each output component
+                    #pragma unroll
+                    for (int out_k = 0; out_k <= P::targetP::k; out_k++) {
+                        FFP bk_val = tgsw_ntt[(((P::targetP::k + 1) * digit_linear + out_k) << P::targetP::nbit) + i];
+                        sh_accum[out_k * N + i] += ntt_val * bk_val;
+                    }
+                }
+            }
+            __syncthreads();
+        }
     }
-    else {
-        // Optimized INTT: 13 syncs (1 load + 11 INTT stages + 1 convert)
+
+    // Step 4: Inverse NTT on accumulated results and add to trlwe
+    // Process (k+1) inverse NTTs sequentially
+    for (int k_idx = 0; k_idx <= P::targetP::k; k_idx++) {
+        // Copy accumulated data to work buffer
+        if (tid < NUM_THREADS) {
+            sh_work[tid] = sh_accum[k_idx * N + tid];
+            sh_work[tid + NUM_THREADS] = sh_accum[k_idx * N + tid + NUM_THREADS];
+        }
         __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
-        __syncthreads();
+
+        // Inverse NTT (11 syncs inside)
+        constexpr Data64 half_mod = GPUNTT_DEFAULT_MODULUS / 2;
+        if (tid < NUM_THREADS) {
+            SmallInverseNTT_1024(reinterpret_cast<Data64*>(sh_work), ntt.inverse_root_, ntt.n_inverse_, tid);
+        } else {
+            for (int s = 0; s < 11; s++) __syncthreads();
+        }
+
+        // Convert and add to trlwe
+        if (tid < NUM_THREADS) {
+            #pragma unroll
+            for (int e = 0; e < 2; e++) {
+                int i = tid + e * NUM_THREADS;
+                Data64 val = sh_work[i].val();
+                typename P::targetP::T conv = (val > half_mod)
+                    ? static_cast<typename P::targetP::T>(static_cast<int64_t>(val) - static_cast<int64_t>(GPUNTT_DEFAULT_MODULUS))
+                    : static_cast<typename P::targetP::T>(val);
+                trlwe[k_idx * N + i] += conv;
+            }
+        }
         __syncthreads();
     }
-    __syncthreads();  // must
 }
 
 template<class P>

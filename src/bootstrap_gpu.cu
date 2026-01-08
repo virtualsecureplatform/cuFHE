@@ -33,9 +33,12 @@
 #include <algorithm>
 
 namespace cufhe {
+// Shared memory for sequential NTT approach:
+// - Working buffer: N elements for NTT operations
+// - Accumulated results: (k+1) * N elements for products in NTT domain
+// Total: (1 + k + 1) * N = (k + 2) * N elements
 template<class P = TFHEpp::lvl1param>
-constexpr uint MEM4HOMGATE =
-    ((P::k+1) * P::l + 1 + P::k) * P::n * sizeof(FFP);
+constexpr uint MEM4HOMGATE = (P::k + 2) * P::n * sizeof(FFP);
 
 using namespace std;
 using namespace TFHEpp;

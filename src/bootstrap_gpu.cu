@@ -82,7 +82,9 @@ void InitializeNTThandlers(const int gpuNum)
         ntt_handlers.push_back(new CuNTTHandler<>());
         ntt_handlers[i]->Create();
         ntt_handlers[i]->CreateConstant();
+#ifdef USE_GPUNTT
         ntt_handlers[i]->SetDevicePointers(i);  // Set device pointers for this GPU
+#endif
         cudaDeviceSynchronize();
         CuCheckError();
     }

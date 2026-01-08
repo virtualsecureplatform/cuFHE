@@ -26,11 +26,14 @@ add_executable(test_perf test_perf.cc)
 target_include_directories(test_perf PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 target_link_libraries(test_perf cufhe_gpu ${CUDA_LIBRARIES})
 
-add_executable(test_polynomial_mult_1024 test_polynomial_mult_1024.cu)
-target_include_directories(test_polynomial_mult_1024 PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-target_link_libraries(test_polynomial_mult_1024 cufhe_gpu ${CUDA_LIBRARIES})
-set_target_properties(test_polynomial_mult_1024 PROPERTIES
-    CUDA_ARCHITECTURES 80
-    CUDA_SEPARABLE_COMPILATION ON
-    CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+# Only build polynomial mult test for GPU-NTT (uses GPU-NTT specific API)
+if(USE_GPUNTT)
+    add_executable(test_polynomial_mult_1024 test_polynomial_mult_1024.cu)
+    target_include_directories(test_polynomial_mult_1024 PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+    target_link_libraries(test_polynomial_mult_1024 cufhe_gpu ${CUDA_LIBRARIES})
+    set_target_properties(test_polynomial_mult_1024 PROPERTIES
+        CUDA_ARCHITECTURES 80
+        CUDA_SEPARABLE_COMPILATION ON
+        CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif()
 

@@ -65,10 +65,10 @@ void Test(string type, Func func, Check check, vector<uint8_t>& pt,
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&et, start, stop);
-    cout << "Total:" << et << "ms" << endl;
-    cout << et / kNumTests << " ms / gate" << endl;
-    cout << et / kNumSMs << " ms / stream" << endl;
-    cout <<"Latency: "<< et * kNumSMs / kNumTests << " ms" << endl;
+    const int kGatesPerStream = kNumTests / kNumSMs;
+    cout << "Total: " << et << " ms" << endl;
+    cout << "Throughput: " << et / kNumTests << " ms/gate" << endl;
+    cout << "Latency: " << et / kGatesPerStream << " ms/gate" << endl;
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
 

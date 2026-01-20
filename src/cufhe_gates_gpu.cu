@@ -64,6 +64,8 @@ bool StreamQuery(Stream st)
     }
 }
 
+// CMUX operations only available with large modulus
+#ifndef USE_SMALL_NTT_MODULUS
 void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1,
              cuFHETRLWElvl1& c0, Stream st)
 {
@@ -81,6 +83,7 @@ void CMUXNTT(cuFHETRLWElvl1& res, cuFHETRGSWNTTlvl1& cs, cuFHETRLWElvl1& c1,
     cudaMemcpyAsync(res.trlwehost.data(), res.trlwedevices[st.device_id()],
                     sizeof(res.trlwehost), cudaMemcpyDeviceToHost, st.st());
 }
+#endif  // !USE_SMALL_NTT_MODULUS
 
 void GateBootstrappingTLWE2TRLWElvl01NTT(cuFHETRLWElvl1& out, Ctxt<TFHEpp::lvl0param>& in,
                                          Stream st)

@@ -2,7 +2,15 @@
  * Test for 1024-degree polynomial multiplication
  * This test performs polynomial multiplication of 1024-degree polynomials
  * with 32-bit coefficient polynomial times up to 20-bit coefficient polynomial mod 32 bit
+ *
+ * NOTE: This test uses the large modulus (FFP-based) NTT implementation.
+ * It is not applicable to the small modulus (RAINTT-style) implementation.
  */
+
+#include <include/ntt_gpu/ntt.cuh>
+
+// This test only works with large modulus NTT (FFP-based)
+#ifndef USE_SMALL_NTT_MODULUS
 
 #include <cassert>
 #include <iostream>
@@ -12,7 +20,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include <include/ntt_gpu/ntt.cuh>
 #include <include/details/error_gpu.cuh>
 #include <include/cufhe_gpu.cuh>
 
@@ -270,6 +277,23 @@ int main() {
         cout << "The NTT-based polynomial multiplication may need debugging." << endl;
         return 1;
     }
-    
+
     return 0;
 }
+
+#else  // USE_SMALL_NTT_MODULUS
+
+// Small modulus NTT uses different polynomial multiplication semantics
+// with Torus discretization switching, so this test is not applicable.
+#include <iostream>
+
+int main() {
+    std::cout << "=== Test for 1024-degree Polynomial Multiplication ===" << std::endl;
+    std::cout << "This test is skipped for small modulus NTT builds." << std::endl;
+    std::cout << "The small modulus implementation uses Torus discretization switching" << std::endl;
+    std::cout << "with different multiplication semantics." << std::endl;
+    std::cout << "\n*** TEST SKIPPED (small modulus build) ***" << std::endl;
+    return 0;
+}
+
+#endif  // USE_SMALL_NTT_MODULUS

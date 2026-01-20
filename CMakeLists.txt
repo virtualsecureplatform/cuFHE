@@ -9,6 +9,7 @@ option(USE_RANDEN "Use randen as CSPRNG" OFF)
 option(USE_80BIT_SECURITY "Use 80bit security parameter(faster)" OFF)
 option(USE_CGGI19 "Use the parameter set proposed in CGGI19" OFF)
 option(USE_CONCRETE "Use the parameter set proposed in CONCRETE" OFF)
+option(USE_SMALL_NTT_MODULUS "Use small NTT modulus with Torus discretization switching (RAINTT-style)" OFF)
 
 if(USE_RANDEN)
   add_compile_definitions(USE_RANDEN)
@@ -20,6 +21,11 @@ elseif(USE_CGGI19)
   add_compile_definitions(USE_CGGI19)
 elseif(USE_CONCRETE)
   add_compile_definitions(USE_CONCRETE)
+endif()
+
+if(USE_SMALL_NTT_MODULUS)
+  add_compile_definitions(USE_SMALL_NTT_MODULUS)
+  message(STATUS "Using small NTT modulus (RAINTT-style) with Torus discretization switching")
 endif()
 
 # For OpenMP

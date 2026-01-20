@@ -95,15 +95,6 @@ void ctxtDelete(hT &host, std::vector<dT *> &devices)
 }
 
 /*****************************
- * Parameters *
- *****************************/
-
-// NUM_THREAD4HOMGATE: For sequential NTT approach, we use N/2 threads (512 for N=1024)
-// This matches HEonGPU's architecture where each thread handles 2 elements
-template<class P = TFHEpp::lvl1param>
-constexpr uint NUM_THREAD4HOMGATE = P::n >> NTT_THREAD_UNITBIT;
-
-/*****************************
  * Essential Data Structures *
  *****************************/
 

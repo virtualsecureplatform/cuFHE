@@ -618,8 +618,11 @@ public:
 
 #endif // __CUDACC__
 
-// Type alias
+// Type alias - only define here when not using small modulus
+// (small modulus defines CuNTTHandler in ntt_small_modulus.cuh)
+#ifndef USE_SMALL_NTT_MODULUS
 template <uint32_t length = TFHEpp::lvl1param::n>
 using CuNTTHandler = CuNTTHandlerGPUNTT<length>;
+#endif
 
 } // namespace cufhe

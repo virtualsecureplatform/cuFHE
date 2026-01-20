@@ -1,10 +1,9 @@
 #pragma once
 
-
 #include <include/cufhe_gpu.cuh>
 #include <include/details/error_gpu.cuh>
 #include <include/details/utils_gpu.cuh>
-#include <include/ntt_gpu/ntt_gpuntt.cuh>
+#include <include/ntt_gpu/ntt.cuh>
 
 namespace cufhe{
 
@@ -105,29 +104,39 @@ __device__ inline void PolynomialMulByXaiMinusOneAndDecompositionTRLWE(
  * Uses 512 threads, processes NTTs one at a time for maximum efficiency
  *
  * Shared memory layout:
- * - sh_acc_ntt[0..N-1]: Working buffer for NTT operations (8KB)
- * - sh_acc_ntt[N..3N-1]: Accumulated products in NTT domain (16KB for k+1=2 outputs)
+ * - sh_acc_ntt[0..N-1]: Working buffer for NTT operations
+ * - sh_acc_ntt[N..(k+2)*N-1]: Accumulated products in NTT domain
+ *
+ * This function automatically adapts to either:
+ * - Large modulus (~2^60, FFP type) - exact integer arithmetic
+ * - Small modulus (~2^29, uint32_t) - with Torus discretization switching
+ * Based on USE_SMALL_NTT_MODULUS macro
  */
 template<class P>
-__device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* const sh_acc_ntt,
+__device__ inline void Accumulate(typename P::targetP::T* const trlwe, NTTValue* const sh_acc_ntt,
                                   const uint32_t a_bar,
-                                  const FFP* const tgsw_ntt,
+                                  const NTTValue* const tgsw_ntt,
                                   const CuNTTHandler<> ntt)
 {
     const uint32_t tid = ThisThreadRankInBlock();
 
     constexpr uint32_t N = P::targetP::n;
-    constexpr uint32_t NUM_THREADS = N >> NTT_THREAD_UNITBIT;  // 512
+    constexpr uint32_t NUM_THREADS = N >> 1;  // 512 for N=1024
 
     // Aliases for clarity
-    FFP* const sh_work = &sh_acc_ntt[0];              // Working buffer for NTT
-    FFP* const sh_accum = &sh_acc_ntt[N];             // Accumulated results (k+1 polynomials)
+    NTTValue* const sh_work = &sh_acc_ntt[0];              // Working buffer for NTT
+    NTTValue* const sh_accum = &sh_acc_ntt[N];             // Accumulated results (k+1 polynomials)
 
     // Initialize accumulated results to zero
     if (tid < NUM_THREADS) {
         for (int k_idx = 0; k_idx <= P::targetP::k; k_idx++) {
+#ifdef USE_SMALL_NTT_MODULUS
+            sh_accum[k_idx * N + tid] = 0;
+            sh_accum[k_idx * N + tid + NUM_THREADS] = 0;
+#else
             sh_accum[k_idx * N + tid] = FFP(static_cast<Data64>(0));
             sh_accum[k_idx * N + tid + NUM_THREADS] = FFP(static_cast<Data64>(0));
+#endif
         }
     }
     __syncthreads();
@@ -167,12 +176,21 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
                            (digit + 1) * P::targetP::Bgbit)) &
                          decomp_mask) -
                         decomp_half);
-                    sh_work[i] = FFP(digit_val);
+                    sh_work[i] = intToNTT(digit_val);
                 }
             }
             __syncthreads();
 
-            // Step 2: Forward NTT on decomposed polynomial - dispatch based on N
+            // Step 2: Forward NTT on decomposed polynomial
+#ifdef USE_SMALL_NTT_MODULUS
+            if (tid < NUM_THREADS) {
+                if constexpr (N == 1024) {
+                    SmallForwardNTT32_1024(sh_work, ntt.forward_root_, tid);
+                }
+            } else {
+                for (int s = 0; s < 5; s++) __syncthreads();
+            }
+#else
             if (tid < NUM_THREADS) {
                 if constexpr (N == 1024) {
                     SmallForwardNTT_1024(reinterpret_cast<Data64*>(sh_work), ntt.forward_root_, tid);
@@ -180,27 +198,24 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
                     SmallForwardNTT_512(reinterpret_cast<Data64*>(sh_work), ntt.forward_root_, tid);
                 }
             } else {
-                // Sync count: 5 for N=1024, 9 for N=512 (after DEBUG syncs added)
                 constexpr int sync_count = (N == 1024) ? 5 : 9;
                 for (int s = 0; s < sync_count; s++) __syncthreads();
             }
+#endif
 
             // Step 3: Multiply with BK and accumulate into sh_accum
-            // tgsw_ntt layout: [(k+1)*l output components] x [N]
-            // For digit d from component j: access tgsw_ntt[((k+1)*digit_linear + output_k) * N + i]
-            // where digit_linear = j * l + digit
             int digit_linear = j * P::targetP::l + digit;
             if (tid < NUM_THREADS) {
                 #pragma unroll
                 for (int e = 0; e < 2; e++) {
                     int i = tid + e * NUM_THREADS;
-                    FFP ntt_val = sh_work[i];
+                    NTTValue ntt_val = sh_work[i];
 
                     // Accumulate into each output component
                     #pragma unroll
                     for (int out_k = 0; out_k <= P::targetP::k; out_k++) {
-                        FFP bk_val = tgsw_ntt[(((P::targetP::k + 1) * digit_linear + out_k) << P::targetP::nbit) + i];
-                        sh_accum[out_k * N + i] += ntt_val * bk_val;
+                        NTTValue bk_val = tgsw_ntt[(((P::targetP::k + 1) * digit_linear + out_k) << P::targetP::nbit) + i];
+                        sh_accum[out_k * N + i] = nttAdd(sh_accum[out_k * N + i], nttMult(ntt_val, bk_val));
                     }
                 }
             }
@@ -209,7 +224,6 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
     }
 
     // Step 4: Inverse NTT on accumulated results and add to trlwe
-    // Process (k+1) inverse NTTs sequentially
     for (int k_idx = 0; k_idx <= P::targetP::k; k_idx++) {
         // Copy accumulated data to work buffer
         if (tid < NUM_THREADS) {
@@ -218,7 +232,29 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
         }
         __syncthreads();
 
-        // Inverse NTT - dispatch based on N
+        // Inverse NTT
+#ifdef USE_SMALL_NTT_MODULUS
+        if (tid < NUM_THREADS) {
+            if constexpr (N == 1024) {
+                SmallInverseNTT32_1024(sh_work, ntt.inverse_root_, ntt.n_inverse_, tid);
+            }
+        } else {
+            for (int s = 0; s < 6; s++) __syncthreads();
+        }
+
+        // Convert with modulus switching and add to trlwe
+        constexpr uint32_t half_mod = small_ntt::P / 2;
+        if (tid < NUM_THREADS) {
+            #pragma unroll
+            for (int e = 0; e < 2; e++) {
+                int i = tid + e * NUM_THREADS;
+                uint32_t val = sh_work[i];
+                int32_t signed_val = (val > half_mod) ? static_cast<int32_t>(val - small_ntt::P) : static_cast<int32_t>(val);
+                // Modulus switch: convert from P discretization to 2^32
+                trlwe[k_idx * N + i] += ntt_mod_to_torus32(signed_val);
+            }
+        }
+#else
         constexpr Data64 half_mod = GPUNTT_DEFAULT_MODULUS / 2;
         if (tid < NUM_THREADS) {
             if constexpr (N == 1024) {
@@ -227,12 +263,11 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
                 SmallInverseNTT_512(reinterpret_cast<Data64*>(sh_work), ntt.inverse_root_, ntt.n_inverse_, tid);
             }
         } else {
-            // Sync count: 6 for N=1024, 10 for N=512 (after DEBUG syncs added)
             constexpr int sync_count = (N == 1024) ? 6 : 10;
             for (int s = 0; s < sync_count; s++) __syncthreads();
         }
 
-        // Convert and add to trlwe
+        // Convert (no modswitch) and add to trlwe
         if (tid < NUM_THREADS) {
             #pragma unroll
             for (int e = 0; e < 2; e++) {
@@ -244,6 +279,7 @@ __device__ inline void Accumulate(typename P::targetP::T* const trlwe, FFP* cons
                 trlwe[k_idx * N + i] += conv;
             }
         }
+#endif
         __syncthreads();
     }
 }
@@ -252,11 +288,11 @@ template<class P>
 __device__ inline void __BlindRotate__(typename P::targetP::T* const out,
                                    const typename P::domainP::T* const in,
                                    const typename P::targetP::T mu,
-                                   const FFP* const bk,
+                                   const NTTValue* const bk,
                                    CuNTTHandler<> ntt)
 {
-    extern __shared__ FFP sh[];
-    FFP* sh_acc_ntt = &sh[0];
+    extern __shared__ NTTValue sh[];
+    NTTValue* sh_acc_ntt = &sh[0];
 
     // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
     {
@@ -281,11 +317,11 @@ template <class P, int casign, int cbsign, std::make_signed_t<typename P::domain
 __device__ inline void __BlindRotatePreAdd__(typename P::targetP::T* const out,
                                    const typename P::domainP::T* const in0,
                                    const typename P::domainP::T* const in1,
-                                   const FFP* const bk,
+                                   const NTTValue* const bk,
                                    CuNTTHandler<> ntt)
 {
-    extern __shared__ FFP sh[];
-    FFP* sh_acc_ntt = &sh[0];
+    extern __shared__ NTTValue sh[];
+    NTTValue* sh_acc_ntt = &sh[0];
 
     // test vector: acc.a = 0; acc.b = vec(mu) * x ^ (in.b()/2048)
     {

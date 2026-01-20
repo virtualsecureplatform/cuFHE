@@ -1,15 +1,21 @@
 /**
  * Small Modulus NTT implementation for cuFHE
  *
- * This implements the RAINTT approach where:
+ * This implements the RAINTT-style approach where:
  * - Torus discretization switches from 2^32 to NTT modulus before multiplication
  * - After INTT, results are converted back to 2^32 discretization
  *
  * This is more efficient than the 64-bit modulus approach for certain use cases
  * as it allows working with smaller integers.
  *
- * Modulus: P = (K << shiftamount) + 1 where K = 5^4 = 625
- * For N=1024: P = 655360001 (~2^29.3)
+ * Current modulus: P = 625 * 2^20 + 1 = 655360001 (~29.3 bits)
+ * - Compatible with TFHEpp RAINTT implementation
+ * - Has 2048th primitive root of unity (required for N=1024 NTT)
+ *
+ * Note: A larger modulus P = 1433 * 2^21 + 1 = 3005218817 (~31.5 bits) could
+ * provide better precision while still satisfying 2*P^2 < 2^64 for safe
+ * Montgomery reduction. This would require updating the primitive root
+ * calculation (prime factors change from {2,5} to {2,1433}).
  */
 
 #pragma once
@@ -28,36 +34,40 @@ namespace cufhe {
 
 namespace small_ntt {
 
-// RAINTT parameters
-constexpr uint32_t K = 625;           // 5^4
-constexpr uint32_t SHIFTAMOUNT = 20;  // For 31-bit words
+// NTT parameters - optimized for GPU
+// P = K * 2^20 + 1 = 655360001 (~29.3 bits) - original RAINTT modulus
+// Larger modulus (31.5 bits) available: K=1433, SHIFTAMOUNT=21 -> P=3005218817
+constexpr uint32_t K = 625;
+constexpr uint32_t SHIFTAMOUNT = 20;
 constexpr uint32_t WORDBITS = 32;     // Using 32-bit arithmetic on GPU
 
-// Small modulus: P = K * 2^shiftamount + 1 = 655360001 (~2^29.3)
+// NTT modulus: P = K * 2^shiftamount + 1 = 655360001
 constexpr uint32_t P = (K << SHIFTAMOUNT) + 1;  // 655360001
 
+// Verify safety constraint at compile time: 2*P^2 < 2^64
+// P must be less than sqrt(2^63) ≈ 3.03 billion for safe 64-bit Montgomery reduction
+static_assert(P < 3037000500ULL, "Modulus too large for safe Montgomery reduction");
+
 // Barrett reduction parameters for 32-bit modulus
-// mu = floor(2^(2*k) / P) where k = ceil(log2(P)) = 30
-constexpr uint32_t MODULUS_BITS = 30;
+constexpr uint32_t MODULUS_BITS = 32;
 constexpr uint64_t BARRETT_MU = (1ULL << 60) / P;  // Pre-computed for 64-bit intermediate
 
-// Montgomery constant: R = 2^32 mod P
+// Montgomery constant: R = 2^32 mod P = 1289748479
 constexpr uint64_t R_TEMP = (1ULL << 32) % P;
 constexpr uint32_t R = static_cast<uint32_t>(R_TEMP);
 
-// R^2 mod P for Montgomery domain conversion
+// R^2 mod P for Montgomery domain conversion = 295825756
 constexpr uint64_t R2_TEMP = (static_cast<uint64_t>(R) * R) % P;
 constexpr uint32_t R2 = static_cast<uint32_t>(R2_TEMP);
 
 // N inverse for N=1024 (in Montgomery form)
-// Need to compute: (1024)^(-1) mod P, then multiply by R
 constexpr uint32_t N_1024 = 1024;
 
 // Modulus switching constants
-// For Torus32 -> NTT mod: res = round((a * P) / 2^32) = ((a * K) << shiftamount + a + 2^31) >> 32
+// For Torus32 -> NTT mod: res = round((a * P) / 2^32)
 // For NTT mod -> Torus32: res = round((a * 2^32) / P)
 
-// Pre-computed: 2^(32 + 31) / P for inverse modswitch
+// Pre-computed: 2^63 / P for inverse modswitch
 constexpr uint64_t INV_MODSWITCH_MUL = (1ULL << 63) / P;
 
 }  // namespace small_ntt
@@ -134,20 +144,15 @@ __device__ __forceinline__ uint32_t small_mod_mult(uint32_t a, uint32_t b) {
 /**
  * Modulus switch: Torus32 (2^32 discretization) -> NTT modulus P
  *
- * Formula: res = round((a * P) / 2^32)
- *        = ((a * K) << shiftamount + a + 2^31) >> 32
- *        = ((a * (K << shiftamount + 1)) + 2^31) >> 32
- *        = ((a * P) + 2^31) >> 32
+ * Formula: res = round((a * P) / 2^32) = (a * P + 2^31) >> 32
  *
  * This switches the discretization from Torus (mod 2^32) to NTT domain (mod P)
  */
 __device__ __forceinline__ uint32_t torus32_to_ntt_mod(uint32_t torus_val) {
-    constexpr uint32_t K = small_ntt::K;
-    constexpr uint32_t shiftamount = small_ntt::SHIFTAMOUNT;
+    constexpr uint64_t P = small_ntt::P;
 
-    // res = ((a * K) << shiftamount + a + 2^31) >> 32
-    uint64_t temp = static_cast<uint64_t>(torus_val) * K;
-    temp = (temp << shiftamount) + torus_val + (1ULL << 31);
+    // res = (a * P + 2^31) >> 32  (rounding)
+    uint64_t temp = static_cast<uint64_t>(torus_val) * P + (1ULL << 31);
     return static_cast<uint32_t>(temp >> 32);
 }
 

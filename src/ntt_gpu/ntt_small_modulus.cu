@@ -2,7 +2,8 @@
  * Small Modulus NTT implementation for cuFHE
  * Host-side initialization functions
  *
- * Uses RAINTT-style modulus: P = (K << shiftamount) + 1 = 655360001
+ * Modulus: P = 625 * 2^20 + 1 = 655360001 (~29.3 bits)
+ * P - 1 = 2^20 * 625 = 2^20 * 5^4 (prime factors: 2, 5)
  */
 
 #include <include/ntt_gpu/ntt_small_modulus.cuh>
@@ -79,7 +80,6 @@ uint32_t find_primitive_root(int log_n) {
 
     // First, find a generator g of Z_P^*
     // P - 1 = 2^20 * 5^4, so we need g where g^((P-1)/2) != 1 and g^((P-1)/5) != 1
-    // A simple trial: test small primes
     uint32_t g = 3;  // Common generator candidate
 
     // Verify g is a generator by checking g^((P-1)/q) != 1 for prime divisors q of P-1

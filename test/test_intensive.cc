@@ -1,6 +1,22 @@
 #include <include/cufhe_gpu.cuh>
+#include <memory>
 
 const size_t N = 20, M = 1000;
+
+// Helper to allocate 2D array of Ctxt on heap (Ctxt has deleted copy ctor)
+template<class P>
+struct CtxtArray2D {
+    std::unique_ptr<cufhe::Ctxt<P>[]> data;
+    size_t cols;
+
+    CtxtArray2D(size_t rows, size_t cols) : cols(cols) {
+        data = std::make_unique<cufhe::Ctxt<P>[]>(rows * cols);
+    }
+
+    cufhe::Ctxt<P>& operator()(size_t i, size_t j) {
+        return data[i * cols + j];
+    }
+};
 
 template <class Launcher, class Verifier>
 void runAndVerify(const char* name, Launcher&& launcher, Verifier&& verifier)
@@ -39,7 +55,8 @@ void runAndVerify(const char* name, Launcher&& launcher, Verifier&& verifier)
 
 void testMux(TFHEpp::SecretKey& sk)
 {
-    cufhe::Ctxt<TFHEpp::lvl0param> ca, cb, cc, cres[N][M];
+    cufhe::Ctxt<TFHEpp::lvl0param> ca, cb, cc;
+    CtxtArray2D<TFHEpp::lvl0param> cres(N, M);  // Heap allocation
     bool pa, pb, pc;
     pa = true;
     pb = false;
@@ -58,19 +75,20 @@ void testMux(TFHEpp::SecretKey& sk)
     runAndVerify(
         "mux",
         [&](size_t i, size_t j, cufhe::Stream st) {
-            cufhe::Mux(cres[i][j], ca, cb, cc, st);
+            cufhe::Mux(cres(i, j), ca, cb, cc, st);
         },
         [&](size_t i, size_t j) {
             bool decres;
             decres = TFHEpp::tlweSymDecrypt<TFHEpp::lvl0param>(
-                cres[i][j].tlwehost, sk.key.get<TFHEpp::lvl0param>());
+                cres(i, j).tlwehost, sk.key.get<TFHEpp::lvl0param>());
             return expected == decres;
         });
 }
 
 void testNand(TFHEpp::SecretKey& sk)
 {
-    cufhe::Ctxt<TFHEpp::lvl0param> ca, cb, cres[N][M];
+    cufhe::Ctxt<TFHEpp::lvl0param> ca, cb;
+    CtxtArray2D<TFHEpp::lvl0param> cres(N, M);  // Heap allocation
     bool pa, pb;
     pa = true;
     pb = false;
@@ -85,12 +103,12 @@ void testNand(TFHEpp::SecretKey& sk)
     runAndVerify(
         "nand",
         [&](size_t i, size_t j, cufhe::Stream st) {
-            cufhe::Nand(cres[i][j], ca, cb, st);
+            cufhe::Nand(cres(i, j), ca, cb, st);
         },
         [&](size_t i, size_t j) {
             bool decres;
             decres = TFHEpp::tlweSymDecrypt<TFHEpp::lvl0param>(
-                cres[i][j].tlwehost, sk.key.get<TFHEpp::lvl0param>());
+                cres(i, j).tlwehost, sk.key.get<TFHEpp::lvl0param>());
             return expected == decres;
         });
 }

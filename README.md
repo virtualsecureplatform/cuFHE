@@ -1,3 +1,5 @@
+# See [cuFHEpp](https://github.com/virtualsecureplatform/cuFHEpp) for further developments
+Because the codebase is now almost entirely replacing core logic, I decided to rename this GPU implementation to better align with [TFHEpp](https://github.com/virtualsecureplatform/TFHEpp)'s development direction.
 # cuFHE
 CUDA-accelerated Torus Fully Homomorphic Encryption Library. This fork is maintained as a sub project of Virtual Secure Platform. 
 This includes some bug fixes and performance improvement. 
